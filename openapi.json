@@ -1,0 +1,414 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ELOQUENT Lot A — Pipeline API",
+    "description": "API REST du pipeline backend multi-LLM ELOQUENT CLEF 2026. Consommée par le Lot B.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/providers": {
+      "get": {
+        "summary": "Liste les providers et modèles disponibles",
+        "tags": [
+          "Catalogue"
+        ],
+        "operationId": "get_providers",
+        "responses": {
+          "200": {
+            "description": "Catalogue complet",
+            "content": {
+              "application/json": {
+                "example": {
+                  "providers": {
+                    "groq": {
+                      "label": "Groq API (cloud)",
+                      "requires_api_key": true,
+                      "models": [
+                        {
+                          "id": "llama-3.1-8b-instant",
+                          "label": "Llama 3.1 8B (rapide)"
+                        },
+                        {
+                          "id": "llama-3.3-70b-versatile",
+                          "label": "Llama 3.3 70B (puissant)"
+                        },
+                        {
+                          "id": "mixtral-8x7b-32768",
+                          "label": "Mixtral 8x7B"
+                        }
+                      ]
+                    },
+                    "qwen_ollama": {
+                      "label": "Qwen 2.5 3B — local (Ollama)",
+                      "requires_api_key": false,
+                      "models": [
+                        {
+                          "id": "qwen2.5:3b",
+                          "label": "Qwen 2.5 3B (local)"
+                        }
+                      ]
+                    }
+                  },
+                  "languages": [
+                    {
+                      "code": "fr",
+                      "label": "Français"
+                    },
+                    {
+                      "code": "it",
+                      "label": "Italien"
+                    },
+                    {
+                      "code": "en",
+                      "label": "Anglais"
+                    },
+                    {
+                      "code": "es",
+                      "label": "Espagnol"
+                    },
+                    {
+                      "code": "de",
+                      "label": "Allemand"
+                    }
+                  ],
+                  "strategies": [
+                    {
+                      "id": "vanilla",
+                      "label": "Vanilla — texte brut (baseline)"
+                    },
+                    {
+                      "id": "system_prompt",
+                      "label": "System prompt (Lot C)"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs": {
+      "post": {
+        "summary": "Lance un nouveau run (asynchrone)",
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "create_run",
+        "description": "Retourne HTTP 202 immédiatement. Le run s'exécute en arrière-plan. Pollez GET /runs/{run_id}/status pour suivre la progression.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "provider",
+                  "model",
+                  "languages",
+                  "dataset_type"
+                ],
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "groq",
+                      "qwen_ollama"
+                    ],
+                    "example": "groq"
+                  },
+                  "model": {
+                    "type": "string",
+                    "example": "llama-3.1-8b-instant"
+                  },
+                  "languages": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "fr",
+                        "it",
+                        "en",
+                        "es",
+                        "de"
+                      ]
+                    },
+                    "example": [
+                      "fr",
+                      "it",
+                      "en",
+                      "es",
+                      "de"
+                    ]
+                  },
+                  "dataset_type": {
+                    "type": "string",
+                    "enum": [
+                      "specific",
+                      "unspecific"
+                    ],
+                    "example": "specific"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 2.0,
+                    "default": 0.0,
+                    "example": 0.0
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "minimum": 10,
+                    "maximum": 2048,
+                    "default": 150,
+                    "example": 150
+                  },
+                  "strategy": {
+                    "type": "string",
+                    "enum": [
+                      "vanilla",
+                      "system_prompt"
+                    ],
+                    "default": "vanilla"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Run lancé en arrière-plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "run_id": {
+                      "type": "string",
+                      "example": "groq_vanilla_20260328_143000"
+                    },
+                    "run_dir": {
+                      "type": "string",
+                      "example": "data/output/runs/groq_vanilla_20260328_143000"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "started"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Paramètres invalides (provider inconnu, clé API manquante, etc.)"
+          }
+        }
+      },
+      "get": {
+        "summary": "Liste l'historique de tous les runs",
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "list_runs",
+        "responses": {
+          "200": {
+            "description": "Liste triée du plus récent au plus ancien",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{run_id}/status": {
+      "get": {
+        "summary": "Progression en temps réel d'un run",
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "get_run_status",
+        "description": "À poller toutes les ~2 secondes pendant qu'un run est en cours.",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État courant du run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Run introuvable"
+          }
+        }
+      }
+    },
+    "/runs/{run_id}/download": {
+      "get": {
+        "summary": "Télécharger le package ZIP de soumission",
+        "tags": [
+          "Runs"
+        ],
+        "operationId": "download_run",
+        "description": "Contient : config_snapshot.yaml, run_metadata.json, et un fichier JSONL par langue.",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fichier ZIP",
+            "content": {
+              "application/zip": {}
+            }
+          },
+          "404": {
+            "description": "Run introuvable"
+          },
+          "409": {
+            "description": "Conflit — run encore en cours, attendez status=done"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RunSummary": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "run_dir": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "error"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "strategy": {
+            "type": "string"
+          },
+          "dataset_type": {
+            "type": "string"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "RunStatus": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "error"
+            ]
+          },
+          "current_language": {
+            "type": "string"
+          },
+          "languages_done": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "languages_total": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "questions_done": {
+            "type": "integer"
+          },
+          "questions_total": {
+            "type": "integer"
+          },
+          "errors_count": {
+            "type": "integer"
+          },
+          "last_error": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "per_language": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

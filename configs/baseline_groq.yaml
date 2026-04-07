@@ -1,0 +1,32 @@
+# ============================================================
+# Baseline ELOQUENT — Provider : Groq
+# Run "vanilla" : aucun prompt engineering, température 0
+# Protocole : une question = une session indépendante
+# ============================================================
+
+run_id: "baseline_groq_vanilla"
+
+provider: "groq"
+model: "llama-3.1-8b-instant"
+# La clé API est lue depuis .env (GROQ_API_KEY)
+
+languages:
+  - "fr"
+  - "it"
+  - "en"
+  - "es"
+  - "de"
+
+dataset_type: "specific"   # "specific" ou "unspecific"
+
+generation:
+  temperature: 0.0          # 0 = déterministe (obligatoire pour la baseline)
+  max_tokens: 150           # Réponse courte (~1 phrase) comme demandé par ELOQUENT
+  top_p: 1.0
+
+prompting:
+  strategy: "vanilla"       # Pas de system prompt ajouté — texte brut uniquement
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"

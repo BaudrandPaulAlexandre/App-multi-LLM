@@ -1,0 +1,24 @@
+# Environnement virtuel
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Clés API — NE JAMAIS COMMITTER
+.env
+
+# Données (trop lourdes + potentiellement sous licence)
+data/input/
+data/output/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
