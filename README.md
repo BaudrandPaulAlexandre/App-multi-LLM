@@ -18,8 +18,9 @@ cd eloquent-lot-a
 
 # 2. Créer un environnement virtuel
 python -m venv .venv
-source .venv/bin/activate          # Linux / Mac
-# .venv\Scripts\activate           # Windows
+# source .venv/bin/activate          # Linux / Mac
+ .venv\Scripts\activate           # Windows
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser # En cas de problème avec Windows
 
 # 3. Installer les dépendances
 pip install -e ".[dev]"
