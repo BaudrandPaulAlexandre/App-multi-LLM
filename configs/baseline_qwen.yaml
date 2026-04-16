@@ -1,6 +1,7 @@
 # ============================================================
 # Baseline ELOQUENT — Provider : Qwen 2.5 3B via Ollama
-# Identique à baseline_groq mais sur modèle local
+# Run "vanilla" : aucun prompt engineering, température 0
+# Protocole : une question = une session indépendante
 # ============================================================
 
 run_id: "baseline_qwen_vanilla"
@@ -29,3 +30,6 @@ prompting:
 paths:
   input_dir: "data/input"
   output_dir: "data/output/runs"
+
+max_questions: 10
+sample_seed: 42

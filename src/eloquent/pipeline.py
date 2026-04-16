@@ -2,20 +2,12 @@
 pipeline.py
 -----------
 PipelineRunner : boucle principale du Lot A.
-
-Lit les fichiers JSONL d'entrée (un par langue), interroge le LLM
-pour chaque question, écrit les fichiers JSONL de sortie avec le
-champ "answer" ajouté.
-
-Usage via run.py :
-    runner = PipelineRunner(config)
-    runner.run()
 """
 
 from __future__ import annotations
 
 import json
-import shutil
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,17 +51,38 @@ def write_jsonl(records: list[dict], path: Path) -> None:
 def find_question_field(record: dict) -> str | None:
     """
     Détecte le champ contenant la question dans un enregistrement JSONL.
-    Le challenge ELOQUENT utilise différents noms selon les fichiers.
-    Ordre de priorité : "question", "query", "text", premier champ string trouvé.
+    Ordre de priorité : "question", "query", "text", "prompt".
     """
     for field in ("question", "query", "text", "prompt"):
         if field in record and isinstance(record[field], str):
             return field
-    # Fallback : premier champ dont la valeur est une string non vide
     for key, val in record.items():
         if isinstance(val, str) and val.strip():
             return key
     return None
+
+
+def sample_records(records: list[dict], n: int, seed: int = 42) -> list[dict]:
+    """
+    Retourne un sous-échantillon reproductible de n enregistrements.
+    Si len(records) <= n, retourne tous les enregistrements sans modification.
+
+    Args:
+        records : liste complète des enregistrements
+        n       : nombre maximum à conserver
+        seed    : graine aléatoire pour la reproductibilité (défaut 42)
+    """
+    if len(records) <= n:
+        logger.info("Sous-échantillonnage inutile : %d questions <= max %d", len(records), n)
+        return records
+
+    rng = random.Random(seed)
+    sampled = rng.sample(records, n)
+    logger.info(
+        "Sous-échantillonnage : %d questions sélectionnées sur %d (seed=%d)",
+        n, len(records), seed,
+    )
+    return sampled
 
 
 # ---------------------------------------------------------------------------
@@ -83,23 +96,23 @@ class PipelineRunner:
     Flux :
         1. Crée le dossier de run horodaté
         2. Sauvegarde un snapshot de la config
-        3. Pour chaque langue × dataset_type :
+        3. Pour chaque langue :
             a. Lit le fichier JSONL d'entrée
-            b. Pour chaque question → appelle le LLM → ajoute "answer"
-            c. Écrit le fichier JSONL de sortie
-        4. Écrit les métadonnées du run (stats, erreurs, durée)
+            b. Sous-échantillonne si max_questions est défini dans la config
+            c. Pour chaque question → appelle le LLM → ajoute "answer"
+            d. Écrit le fichier JSONL de sortie
+        4. Écrit les métadonnées du run
     """
 
     def __init__(self, config: RunConfig) -> None:
         self.cfg = config
         self.provider: LLMProvider = build_provider_from_config(config)
         self.strategy = build_strategy(config.prompting.strategy)
+        self._started_at = datetime.now(timezone.utc).isoformat()
 
-        # Dossier de run : output_dir / run_id_YYYYMMDD_HHMMSS
+        # Dossier de run horodaté
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        self.run_dir = (
-            config.paths.output_dir / f"{config.run_id}_{timestamp}"
-        )
+        self.run_dir = config.paths.output_dir / f"{config.run_id}_{timestamp}"
         self.run_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Dossier de run : %s", self.run_dir)
 
@@ -108,55 +121,63 @@ class PipelineRunner:
     # ------------------------------------------------------------------
 
     def run(self) -> dict:
-        """
-        Lance le run complet.
-        Retourne un dict de métadonnées (aussi sauvegardé dans run_metadata.json).
-        """
         start_time = datetime.now(timezone.utc)
         logger.info(
             "Démarrage du run '%s' | provider=%s | stratégie=%s",
-            self.cfg.run_id,
-            self.cfg.provider,
-            self.cfg.prompting.strategy,
+            self.cfg.run_id, self.cfg.provider, self.cfg.prompting.strategy,
         )
 
-        # Sauvegarde du snapshot de config dans le dossier de run
         self._save_config_snapshot()
 
-        # Vérification que le provider répond avant de lancer
         if not self.provider.health_check():
             raise RuntimeError(
-                f"Le provider '{self.cfg.provider}' est inaccessible. "
-                f"Vérifiez votre connexion / qu'Ollama tourne."
+                f"Le provider '{self.cfg.provider}' est inaccessible."
             )
 
-        # Boucle sur les langues
+        # Écriture du progress.json initial
+        self._write_progress(
+            status="running",
+            questions_total=len(self.cfg.languages) * (self.cfg.max_questions or 0),
+        )
+
         run_stats: dict[str, dict] = {}
+        languages_done: list[str] = []
+
         for lang in self.cfg.languages:
+            self._write_progress(
+                status="running",
+                current_language=lang,
+                languages_done=languages_done,
+                questions_total=len(self.cfg.languages) * (self.cfg.max_questions or 0),
+            )
             lang_stats = self._process_language(lang)
             run_stats[lang] = lang_stats
+            languages_done.append(lang)
 
         end_time = datetime.now(timezone.utc)
         duration_s = (end_time - start_time).total_seconds()
 
         metadata = {
-            "run_id": self.cfg.run_id,
-            "provider": self.cfg.provider,
-            "model": self.cfg.model,
-            "strategy": self.cfg.prompting.strategy,
-            "dataset_type": self.cfg.dataset_type,
-            "languages": self.cfg.languages,
-            "generation": self.cfg.generation.to_dict(),
-            "started_at": start_time.isoformat(),
-            "ended_at": end_time.isoformat(),
+            "run_id":           self.cfg.run_id,
+            "provider":         self.cfg.provider,
+            "model":            self.cfg.model,
+            "strategy":         self.cfg.prompting.strategy,
+            "dataset_type":     self.cfg.dataset_type,
+            "languages":        self.cfg.languages,
+            "max_questions":    self.cfg.max_questions,
+            "sample_seed":      self.cfg.sample_seed,
+            "generation":       self.cfg.generation.to_dict(),
+            "started_at":       start_time.isoformat(),
+            "ended_at":         end_time.isoformat(),
             "duration_seconds": round(duration_s, 1),
-            "per_language": run_stats,
+            "per_language":     run_stats,
         }
 
         self._save_metadata(metadata)
+        self._write_progress(status="done", languages_done=languages_done)
 
-        total_ok = sum(s["success"] for s in run_stats.values())
-        total_err = sum(s["errors"] for s in run_stats.values())
+        total_ok  = sum(s.get("success", 0) for s in run_stats.values())
+        total_err = sum(s.get("errors", 0)  for s in run_stats.values())
         logger.info(
             "Run terminé en %.1fs — %d réponses OK, %d erreurs",
             duration_s, total_ok, total_err,
@@ -168,30 +189,27 @@ class PipelineRunner:
     # ------------------------------------------------------------------
 
     def _process_language(self, lang: str) -> dict:
-        """
-        Traite tous les fichiers JSONL pour une langue donnée.
-        Retourne des stats (nb questions, succès, erreurs, latence moyenne).
-        """
         input_path = (
-            self.cfg.paths.input_dir
-            / f"{lang}_{self.cfg.dataset_type}.jsonl"
+            self.cfg.paths.input_dir / f"{lang}_{self.cfg.dataset_type}.jsonl"
         )
 
         if not input_path.exists():
-            logger.warning(
-                "Fichier introuvable, langue ignorée : %s", input_path
-            )
+            logger.warning("Fichier introuvable, langue ignorée : %s", input_path)
             return {"success": 0, "errors": 0, "skipped": True}
 
-        records = read_jsonl(input_path)
-        logger.info(
-            "[%s] %d questions trouvées dans %s",
-            lang, len(records), input_path.name,
+        all_records = read_jsonl(input_path)
+        logger.info("[%s] %d questions dans %s", lang, len(all_records), input_path.name)
+
+        # --- Sous-échantillonnage ---
+        records = sample_records(
+            all_records,
+            n=self.cfg.max_questions or len(all_records),
+            seed=self.cfg.sample_seed,
         )
 
-        output_records = []
-        success_count = 0
-        error_count = 0
+        output_records   = []
+        success_count    = 0
+        error_count      = 0
         total_latency_ms = 0.0
 
         for record in tqdm(records, desc=f"{lang}", unit="q", leave=False):
@@ -199,32 +217,23 @@ class PipelineRunner:
             output_records.append(processed)
 
             if resp.success:
-                success_count += 1
+                success_count    += 1
                 total_latency_ms += resp.latency_ms
             else:
                 error_count += 1
-                # Log l'erreur avec l'ID de la question pour faciliter le debug
                 q_id = record.get("id", record.get("query_id", "?"))
-                logger.error(
-                    "[%s] Erreur sur question id=%s : %s",
-                    lang, q_id, resp.error,
-                )
+                logger.error("[%s] Erreur question id=%s : %s", lang, q_id, resp.error)
 
-        # Écriture du fichier de sortie
-        output_path = (
-            self.run_dir / f"{lang}_{self.cfg.dataset_type}_output.jsonl"
-        )
+        output_path = self.run_dir / f"{lang}_{self.cfg.dataset_type}_output.jsonl"
         write_jsonl(output_records, output_path)
         logger.info("[%s] Sortie écrite : %s", lang, output_path.name)
 
-        avg_latency = (
-            total_latency_ms / success_count if success_count > 0 else 0.0
-        )
-
+        avg_latency = total_latency_ms / success_count if success_count > 0 else 0.0
         return {
-            "total": len(records),
-            "success": success_count,
-            "errors": error_count,
+            "total_in_file": len(all_records),
+            "total_sampled": len(records),
+            "success":       success_count,
+            "errors":        error_count,
             "avg_latency_ms": round(avg_latency, 1),
         }
 
@@ -232,70 +241,42 @@ class PipelineRunner:
     # Traitement d'une question
     # ------------------------------------------------------------------
 
-    def _process_record(
-        self, record: dict, lang: str
-    ) -> tuple[dict, LLMResponse]:
-        """
-        Traite une question unique :
-          1. Détecte le champ contenant la question
-          2. Construit les messages via la stratégie de prompting
-          3. Appelle le provider (generate_safe = pas d'exception)
-          4. Ajoute "answer" au record
-
-        Retourne le record enrichi + la LLMResponse (pour les stats).
-        """
+    def _process_record(self, record: dict, lang: str) -> tuple[dict, LLMResponse]:
         question_field = find_question_field(record)
 
         if question_field is None:
-            logger.warning(
-                "[%s] Aucun champ question trouvé dans le record : %s",
-                lang, list(record.keys()),
-            )
+            logger.warning("[%s] Aucun champ question trouvé : %s", lang, list(record.keys()))
             dummy_resp = LLMResponse(
-                content="",
-                model=self.cfg.model,
-                provider_name=self.cfg.provider,
-                latency_ms=0.0,
+                content="", model=self.cfg.model,
+                provider_name=self.cfg.provider, latency_ms=0.0,
                 error="Champ question introuvable",
             )
             return {**record, "answer": ""}, dummy_resp
 
-        question_text = record[question_field]
-        messages = self.strategy.build_messages(question_text)
-
+        messages = self.strategy.build_messages(record[question_field])
         resp = self.provider.generate_safe(
             messages=messages,
             temperature=self.cfg.generation.temperature,
             max_tokens=self.cfg.generation.max_tokens,
         )
-
-        # On enrichit le record original sans le modifier (dict unpacking)
-        enriched = {**record, "answer": resp.content}
-        return enriched, resp
+        return {**record, "answer": resp.content}, resp
 
     # ------------------------------------------------------------------
-    # Sauvegarde
+    # Sauvegarde + progression
     # ------------------------------------------------------------------
 
     def _save_config_snapshot(self) -> None:
-        """Sauvegarde la config utilisée dans le dossier de run."""
-        snapshot_path = self.run_dir / "config_snapshot.yaml"
         import yaml
+        snapshot_path = self.run_dir / "config_snapshot.yaml"
         with snapshot_path.open("w", encoding="utf-8") as f:
             yaml.dump(self.cfg.to_dict(), f, allow_unicode=True, sort_keys=False)
         logger.info("Snapshot config sauvegardé : %s", snapshot_path.name)
 
     def _save_metadata(self, metadata: dict) -> None:
-        """Sauvegarde les métadonnées du run en JSON."""
         meta_path = self.run_dir / "run_metadata.json"
         with meta_path.open("w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
         logger.info("Métadonnées sauvegardées : %s", meta_path.name)
-
-
-# ---------------------------------------------------------------------------
-# Mise à jour du fichier progress.json (lu par le Lot B en temps réel)
-# ---------------------------------------------------------------------------
 
     def _write_progress(
         self,
@@ -307,23 +288,18 @@ class PipelineRunner:
         errors_count: int = 0,
         last_error: str = "",
     ) -> None:
-        """
-        Écrit / met à jour progress.json dans le dossier de run.
-        Appelé régulièrement pendant _process_language() pour que
-        le Lot B puisse afficher la progression en temps réel.
-        """
         progress = {
-            "run_id":             self.cfg.run_id,
-            "status":             status,
-            "current_language":   current_language,
-            "languages_done":     languages_done or [],
-            "languages_total":    self.cfg.languages,
-            "questions_done":     questions_done,
-            "questions_total":    questions_total,
-            "errors_count":       errors_count,
-            "last_error":         last_error,
-            "started_at":         self._started_at,
-            "updated_at":         datetime.now(timezone.utc).isoformat(),
+            "run_id":           self.cfg.run_id,
+            "status":           status,
+            "current_language": current_language,
+            "languages_done":   languages_done or [],
+            "languages_total":  self.cfg.languages,
+            "questions_done":   questions_done,
+            "questions_total":  questions_total,
+            "errors_count":     errors_count,
+            "last_error":       last_error,
+            "started_at":       self._started_at,
+            "updated_at":       datetime.now(timezone.utc).isoformat(),
         }
         progress_path = self.run_dir / "progress.json"
         with progress_path.open("w", encoding="utf-8") as f:

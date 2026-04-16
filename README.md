@@ -23,6 +23,7 @@ python -m venv .venv
 # Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser # En cas de problème avec Windows
 
 # 3. Installer les dépendances
+python -m pip install --upgrade pip setuptools wheel
 pip install -e ".[dev]"
 
 # 4. Configurer les clés API
@@ -100,11 +101,11 @@ uvicorn server:app --reload --host 0.0.0.0 --port 8000
 Le Lot B interagit via HTTP — aucun import Python direct.
 
 ```
-POST http://localhost:8000/runs          ← lancer un run
-GET  http://localhost:8000/runs          ← historique
-GET  http://localhost:8000/runs/{id}/status   ← progression
-GET  http://localhost:8000/runs/{id}/download ← package ZIP
-GET  http://localhost:8000/providers     ← catalogue providers/modèles
+POST http://localhost:8000/runs                 ← lancer un run
+GET  http://localhost:8000/runs                 ← historique
+GET  http://localhost:8000/runs/{id}/status     ← progression
+GET  http://localhost:8000/runs/{id}/download   ← package ZIP
+GET  http://localhost:8000/providers            ← catalogue providers/modèles
 ```
 
 Pour tester sans le Lot B :

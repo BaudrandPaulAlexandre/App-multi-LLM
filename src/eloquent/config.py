@@ -67,9 +67,13 @@ class RunConfig:
     model: str
     languages: list[str]
     dataset_type: str                     # "specific" | "unspecific"
+               
     generation: GenerationParams
     prompting: PromptingParams
     paths: PathsConfig
+
+    max_questions: int | None = None   
+    sample_seed: int = 42   
 
     # Champs optionnels selon le provider
     groq_api_key: str | None = None       # Lu depuis .env si provider=groq
@@ -121,6 +125,8 @@ class RunConfig:
             "generation": self.generation.to_dict(),
             "prompting": {"strategy": self.prompting.strategy},
             "ollama_base_url": self.ollama_base_url,
+            "max_questions": self.max_questions,
+            "sample_seed":   self.sample_seed,
             # On ne sérialise JAMAIS la clé API
         }
 
@@ -163,6 +169,8 @@ def load_config(config_path: str | Path) -> RunConfig:
         model=raw["model"],
         languages=raw["languages"],
         dataset_type=raw.get("dataset_type", "specific"),
+        max_questions=raw.get("max_questions", None),
+        sample_seed=raw.get("sample_seed", 42),
         generation=GenerationParams(
             temperature=gen_raw.get("temperature", 0.0),
             max_tokens=gen_raw.get("max_tokens", 150),
