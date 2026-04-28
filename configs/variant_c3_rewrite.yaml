@@ -1,0 +1,49 @@
+# ============================================================
+# Lot C — Variante 3 : Rewrite (reformulation automatique)
+# Modèle cible : Qwen 2.5 3B local (Ollama)
+# Rewriter   : Groq llama-3.1-8b-instant (modèle plus puissant)
+#
+# Hypothèse testée : faire reformuler la question par un modèle
+# plus capable AVANT de l'envoyer à Qwen 3B (1) lève les ambiguïtés
+# implicites, (2) explicite le contexte culturel s'il était sous-entendu,
+# (3) aboutit à des réponses moins génériques côté Qwen.
+#
+# Coût : 2 appels LLM par question. Temps : ~2x un run vanilla.
+# Traçabilité : "original_text" + "rewritten_text" sont sauvegardés
+# dans chaque record JSONL pour permettre l'analyse Lot D.
+# ============================================================
+
+run_id: "variant_c3_qwen_rewrite_via_groq"
+
+provider: "qwen_ollama"
+model: "qwen2.5:3b"
+ollama_base_url: "http://localhost:11434/v1"
+
+languages:
+  - "fr"
+  - "it"
+  - "en"
+  - "es"
+  - "de"
+
+dataset_type: "specific"
+
+# Décommenter pour un run de test rapide (5 questions par langue) :
+# max_questions: 5
+# sample_seed: 42
+
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+
+prompting:
+  strategy: "rewrite"
+  rewriter:
+    provider: "groq"              # Groq pour la réécriture (rapide + puissant)
+    model: "llama-3.1-8b-instant"
+    max_tokens: 80                # La question réécrite reste courte
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"

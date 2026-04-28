@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(rtk pytest *)",
+      "Bash(python *)",
+      "Bash(rtk find *)",
+      "Bash(rtk read *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\DEV\\\\App-multi-LLM\\\\data\" -Recurse -Force -File | ForEach-Object { Write-Output \"$\\($_.FullName\\) \\($\\($_.Length\\) octets\\)\" })",
+      "PowerShell(Get-ChildItem \"C:\\\\DEV\\\\App-multi-LLM\\\\data\\\\output\" -Recurse -Force | ForEach-Object { Write-Output \"$\\(if\\($_.PSIsContainer\\){'[DIR] '}else{'[FILE] '}\\)$\\($_.FullName\\)$\\(if\\(-not $_.PSIsContainer\\){' \\('+$_.Length+' o\\)'}\\)\" })",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-ChildItem \"C:\\\\DEV\\\\App-multi-LLM\\\\data\\\\input\" -Recurse -Force | ForEach-Object { Write-Output \"$\\(if\\($_.PSIsContainer\\){'[DIR] '}else{'[FILE] '}\\)$\\($_.FullName\\)$\\(if\\(-not $_.PSIsContainer\\){' \\('+$_.Length+' o\\)'}\\)\" })"
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+# ============================================================
+# Lot C — Variante 1 : System Prompt
+# Provider : Groq (llama-3.1-8b-instant), température 0
+# Hypothèse testée : un system prompt unique imposant concision +
+# cohérence linguistique réduit la dispersion des réponses sur
+# l'axe "specific" (robustesse) sans appauvrir l'axe "unspecific"
+# (diversité).
+# ============================================================
+
+run_id: "variant_c1_groq_system_prompt"
+
+provider: "groq"
+model: "llama-3.1-8b-instant"
+
+languages:
+  - "fr"
+  - "it"
+  - "en"
+  - "es"
+  - "de"
+
+dataset_type: "specific"
+
+# Décommenter pour un run de test rapide (5 questions par langue) :
+# max_questions: 5
+# sample_seed: 42
+
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+
+prompting:
+  strategy: "system_prompt"
+  preset: "concise"
+  # Pour utiliser un autre prompt prédéfini : "neutral" ou "culturally_aware"
+  # Pour fournir le tien : commenter "preset" et décommenter ci-dessous :
+  # system_prompt: "You are a helpful assistant. Reply in the user's language..."
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"

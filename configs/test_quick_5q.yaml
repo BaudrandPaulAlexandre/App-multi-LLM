@@ -1,0 +1,35 @@
+# ============================================================
+# Run de test ultra-rapide : 5 questions par langue × 5 langues = 25 appels
+# Usage : python run.py --config configs/test_quick_5q.yaml
+# Reproduit l'échantillon en utilisant sample_seed (même seed = mêmes questions).
+# ============================================================
+
+run_id: "test_quick_groq_vanilla"
+
+provider: "groq"
+model: "llama-3.1-8b-instant"
+
+languages:
+  - "fr"
+  - "it"
+  - "en"
+  - "es"
+  - "de"
+
+dataset_type: "specific"
+
+# Tirage reproductible : 5 questions par langue, seed = 42
+max_questions: 5
+sample_seed: 42
+
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+
+prompting:
+  strategy: "vanilla"
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"

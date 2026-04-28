@@ -15,16 +15,23 @@ Usage via run.py :
 from __future__ import annotations
 
 import json
+import random
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 from tqdm import tqdm
 
-from eloquent.config import RunConfig
+from eloquent.config import RewriterConfig, RunConfig
 from eloquent.logger import get_logger
 from eloquent.prompting import build_strategy
-from eloquent.providers import LLMProvider, LLMResponse, build_provider_from_config
+from eloquent.providers import (
+    GroqProvider,
+    LLMProvider,
+    LLMResponse,
+    QwenOllamaProvider,
+    build_provider_from_config,
+)
 
 logger = get_logger(__name__)
 
@@ -93,7 +100,7 @@ class PipelineRunner:
     def __init__(self, config: RunConfig) -> None:
         self.cfg = config
         self.provider: LLMProvider = build_provider_from_config(config)
-        self.strategy = build_strategy(config.prompting.strategy)
+        self.strategy = self._build_strategy()
 
         # Dossier de run : output_dir / run_id_YYYYMMDD_HHMMSS
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -102,6 +109,66 @@ class PipelineRunner:
         )
         self.run_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Dossier de run : %s", self.run_dir)
+
+    # ------------------------------------------------------------------
+    # Construction de la stratégie de prompting (Lot A + Lot C)
+    # ------------------------------------------------------------------
+
+    def _build_strategy(self):
+        """
+        Instancie la stratégie en passant les bons kwargs depuis la config.
+        Pour 'rewrite', construit le LLMProvider du rewriter ici.
+        """
+        p = self.cfg.prompting
+
+        if p.strategy == "vanilla":
+            return build_strategy("vanilla")
+
+        if p.strategy == "system_prompt":
+            return build_strategy(
+                "system_prompt",
+                preset=p.preset,
+                system_prompt=p.system_prompt,
+            )
+
+        if p.strategy == "prefix_suffix":
+            return build_strategy(
+                "prefix_suffix",
+                prefixes=p.prefixes,
+                suffixes=p.suffixes,
+            )
+
+        if p.strategy == "rewrite":
+            rewriter = self._build_rewriter(p.rewriter)
+            return build_strategy(
+                "rewrite",
+                rewriter=rewriter,
+                max_tokens=p.rewriter.max_tokens,
+            )
+
+        # _validate_config a déjà rejeté les autres cas mais on garde un garde-fou
+        raise ValueError(f"Stratégie inconnue : {p.strategy}")
+
+    def _build_rewriter(self, rcfg: RewriterConfig) -> LLMProvider:
+        """Instancie le LLMProvider qui servira à réécrire les questions."""
+        if rcfg.provider == "groq":
+            if not self.cfg.groq_api_key:
+                raise ValueError(
+                    "Le rewriter 'groq' nécessite GROQ_API_KEY dans .env."
+                )
+            logger.info("Rewriter : groq / %s", rcfg.model)
+            return GroqProvider(model=rcfg.model, api_key=self.cfg.groq_api_key)
+
+        if rcfg.provider == "qwen_ollama":
+            logger.info("Rewriter : qwen_ollama / %s", rcfg.model)
+            return QwenOllamaProvider(
+                model=rcfg.model, base_url=rcfg.ollama_base_url,
+            )
+
+        raise ValueError(
+            f"Rewriter provider inconnu : '{rcfg.provider}'. "
+            f"Valeurs acceptées : 'groq', 'qwen_ollama'."
+        )
 
     # ------------------------------------------------------------------
     # Point d'entrée principal
@@ -146,6 +213,8 @@ class PipelineRunner:
             "strategy": self.cfg.prompting.strategy,
             "dataset_type": self.cfg.dataset_type,
             "languages": self.cfg.languages,
+            "max_questions": self.cfg.max_questions,
+            "sample_seed": self.cfg.sample_seed,
             "generation": self.cfg.generation.to_dict(),
             "started_at": start_time.isoformat(),
             "ended_at": end_time.isoformat(),
@@ -184,10 +253,27 @@ class PipelineRunner:
             return {"success": 0, "errors": 0, "skipped": True}
 
         records = read_jsonl(input_path)
-        logger.info(
-            "[%s] %d questions trouvées dans %s",
-            lang, len(records), input_path.name,
-        )
+        total_in_file = len(records)
+
+        # Échantillonnage reproductible : si max_questions est défini, on tire N
+        # questions au hasard avec une seed (par langue → seed = sample_seed
+        # XOR hash(lang) pour ne pas reprendre les MÊMES indices sur 5 langues).
+        if (
+            self.cfg.max_questions is not None
+            and self.cfg.max_questions < total_in_file
+        ):
+            rng = random.Random(self.cfg.sample_seed ^ hash(lang))
+            records = rng.sample(records, self.cfg.max_questions)
+            logger.info(
+                "[%s] %d questions échantillonnées (sur %d, seed=%d) — %s",
+                lang, len(records), total_in_file,
+                self.cfg.sample_seed, input_path.name,
+            )
+        else:
+            logger.info(
+                "[%s] %d questions trouvées dans %s",
+                lang, total_in_file, input_path.name,
+            )
 
         output_records = []
         success_count = 0
@@ -222,7 +308,8 @@ class PipelineRunner:
         )
 
         return {
-            "total": len(records),
+            "total_in_file": total_in_file,
+            "total_sampled": len(records),
             "success": success_count,
             "errors": error_count,
             "avg_latency_ms": round(avg_latency, 1),
@@ -261,16 +348,22 @@ class PipelineRunner:
             return {**record, "answer": ""}, dummy_resp
 
         question_text = record[question_field]
-        messages = self.strategy.build_messages(question_text)
+        build_result = self.strategy.build(question_text, lang)
 
         resp = self.provider.generate_safe(
-            messages=messages,
+            messages=build_result.messages,
             temperature=self.cfg.generation.temperature,
             max_tokens=self.cfg.generation.max_tokens,
         )
 
-        # On enrichit le record original sans le modifier (dict unpacking)
-        enriched = {**record, "answer": resp.content}
+        # On enrichit le record original sans le modifier (dict unpacking).
+        # La 'trace' contient la transformation appliquée — indispensable
+        # pour l'analyse Lot D (comparaison baseline vs variante).
+        enriched = {
+            **record,
+            "answer": resp.content,
+            "prompt_trace": build_result.trace,
+        }
         return enriched, resp
 
     # ------------------------------------------------------------------
