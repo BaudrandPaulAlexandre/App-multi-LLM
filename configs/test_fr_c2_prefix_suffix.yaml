@@ -1,0 +1,31 @@
+# ============================================================
+# Test FR-only — Lot C / Variante 2 : Prefix + Suffix
+# Une seule langue (français), 5 questions — ~10 sec.
+# Provider : Qwen 2.5 3B local (Ollama doit tourner).
+# ============================================================
+
+run_id: "test_fr_c2_prefix_suffix"
+
+provider: "qwen_ollama"
+model: "qwen2.5:3b"
+ollama_base_url: "http://localhost:11434/v1"
+
+languages:
+  - "fr"
+
+dataset_type: "specific"
+
+max_questions: 5
+sample_seed: 42
+
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+
+prompting:
+  strategy: "prefix_suffix"
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"

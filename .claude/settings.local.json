@@ -9,7 +9,13 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\DEV\\\\App-multi-LLM\\\\data\" -Recurse -Force -File | ForEach-Object { Write-Output \"$\\($_.FullName\\) \\($\\($_.Length\\) octets\\)\" })",
       "PowerShell(Get-ChildItem \"C:\\\\DEV\\\\App-multi-LLM\\\\data\\\\output\" -Recurse -Force | ForEach-Object { Write-Output \"$\\(if\\($_.PSIsContainer\\){'[DIR] '}else{'[FILE] '}\\)$\\($_.FullName\\)$\\(if\\(-not $_.PSIsContainer\\){' \\('+$_.Length+' o\\)'}\\)\" })",
       "PowerShell(Get-ChildItem *)",
-      "PowerShell(Get-ChildItem \"C:\\\\DEV\\\\App-multi-LLM\\\\data\\\\input\" -Recurse -Force | ForEach-Object { Write-Output \"$\\(if\\($_.PSIsContainer\\){'[DIR] '}else{'[FILE] '}\\)$\\($_.FullName\\)$\\(if\\(-not $_.PSIsContainer\\){' \\('+$_.Length+' o\\)'}\\)\" })"
+      "PowerShell(Get-ChildItem \"C:\\\\DEV\\\\App-multi-LLM\\\\data\\\\input\" -Recurse -Force | ForEach-Object { Write-Output \"$\\(if\\($_.PSIsContainer\\){'[DIR] '}else{'[FILE] '}\\)$\\($_.FullName\\)$\\(if\\(-not $_.PSIsContainer\\){' \\('+$_.Length+' o\\)'}\\)\" })",
+      "Bash(git *)",
+      "Bash(rm -rf __pycache__ prompting/__pycache__)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_prompting.py -v)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/ -q)",
+      "Bash(.venv/Scripts/python.exe -c \"from eloquent.prompting import build_strategy, VanillaStrategy, SystemPromptStrategy, PrefixSuffixStrategy, RewriteStrategy; print\\('imports OK'\\); print\\(build_strategy\\('vanilla'\\).strategy_name\\); print\\(build_strategy\\('system_prompt', preset='concise'\\).strategy_name\\); print\\(build_strategy\\('prefix_suffix'\\).strategy_name\\)\")",
+      "Bash(.venv/Scripts/python.exe run_all_variants.py --configs configs/does_not_exist.yaml)"
     ]
   }
 }
