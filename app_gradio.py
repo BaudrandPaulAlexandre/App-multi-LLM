@@ -27,7 +27,7 @@ def update_models(provider_id):
     models = [m["id"] for m in CATALOGUE["providers"][provider_id]["models"]]
     return gr.update(choices=models, value=models[0] if models else None)
 
-def launch_and_track_run(provider, model, langs, dataset_type, temp, max_tokens, strategy):
+def launch_and_track_run(provider, model, langs, dataset_type, temp, max_tokens, max_questions, strategy):
     """
     Lance un run (POST) puis fait du polling (GET /status) pour 
     mettre à jour l'interface en temps réel (Générateur Gradio).
@@ -43,6 +43,7 @@ def launch_and_track_run(provider, model, langs, dataset_type, temp, max_tokens,
         "dataset_type": dataset_type,
         "temperature": temp,
         "max_tokens": max_tokens,
+        "max_questions": max_questions,
         "strategy": strategy
     }
 
@@ -121,12 +122,13 @@ with gr.Blocks(title="ELOQUENT - Panel de Contrôle (Lot B)") as app:
                     languages = gr.CheckboxGroup(choices=lang_choices, label="Langues", value=["fr"])
                 
                 with gr.Column():
-                    gr.Markdown("### 🎛️ Paramètres de Génération")
-                    temperature = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, value=0.0, label="Température (0 = Baseline déterministe)")
-                    max_tokens = gr.Slider(minimum=10, maximum=500, step=10, value=150, label="Max Tokens (Réponse courte)")
+                     #Composant fichier d'entrée
+                    fichier_entree = gr.File(
+                    elem_id="fichier_entree",
+                    file_types=[".jsonl"],
+                    label="Fichier d'entrée :"
+            )
                     
-                    strat_choices = [s["id"] for s in CATALOGUE["strategies"]]
-                    strategy = gr.Dropdown(choices=strat_choices, label="Stratégie (Lot C)", value="vanilla")
                     
             launch_btn = gr.Button("▶️ Lancer le Run", variant="primary")
             
@@ -134,15 +136,6 @@ with gr.Blocks(title="ELOQUENT - Panel de Contrôle (Lot B)") as app:
             status_box = gr.Textbox(label="Statut", interactive=False)
             # Bouton de téléchargement masqué par défaut, on passera l'URL en javascript ou html
             download_html = gr.HTML(visible=False, label="Téléchargement")
-            
-            # Action du bouton de lancement (utilise un générateur pour la barre de progression texte)
-            launch_btn.click(
-                fn=launch_and_track_run,
-                inputs=[provider_dropdown, model_dropdown, languages, dataset_type, temperature, max_tokens, strategy],
-                outputs=[status_box, download_html]
-            )
-            # Met à jour le bouton de téléchargement avec un vrai lien cliquable quand c'est prêt
-            download_html.change(fn=lambda url: f'<a href="{url}" target="_blank" style="padding:10px; background-color:#22c55e; color:white; border-radius:5px; text-decoration:none;">📥 Télécharger le package de soumission (.zip)</a>', inputs=download_html, outputs=download_html)
             
         # --- ONGLET 2 : HISTORIQUE ---
         with gr.Tab("📜 Historique des Runs"):
@@ -154,6 +147,24 @@ with gr.Blocks(title="ELOQUENT - Panel de Contrôle (Lot B)") as app:
             refresh_btn.click(fn=get_history, inputs=[], outputs=history_table)
             app.load(fn=get_history, inputs=[], outputs=history_table) # Charge au démarrage
 
+        # Onglet 3 : Parametres de generation
+        with gr.Tab("🎛️ Paramètres de Génération"):
+            temperature = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, value=0.0, label="Température (0 = Baseline déterministe)")
+            max_tokens = gr.Slider(minimum=10, maximum=500, step=10, value=150, label="Max Tokens (Réponse courte)")
+            max_questions = gr.Slider(minimum=5, maximum=500, step=5, value=5, label="Max Questions")
+
+            strat_choices = [s["id"] for s in CATALOGUE["strategies"]]
+            strategy = gr.Dropdown(choices=strat_choices, label="Stratégie (Lot C)", value="vanilla")
+
+    # Action du bouton de lancement (utilise un générateur pour la barre de progression texte)
+        launch_btn.click(
+            fn=launch_and_track_run,
+            inputs=[provider_dropdown, model_dropdown, languages, dataset_type, temperature, max_tokens, max_questions, strategy],
+            outputs=[status_box, download_html]
+        )
+    # Met à jour le bouton de téléchargement avec un vrai lien cliquable quand c'est prêt
+        download_html.change(fn=lambda url: f'<a href="{url}" target="_blank" style="padding:10px; background-color:#22c55e; color:white; border-radius:5px; text-decoration:none;">📥 Télécharger le package de soumission (.zip)</a>', inputs=download_html, outputs=download_html)
+            
 # Lancement de l'application
 if __name__ == "__main__":
     app.launch()
