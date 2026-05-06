@@ -1,0 +1,35 @@
+# ============================================================
+# Test rapide — Lot C / Variante 1 : System Prompt
+# 5 questions par langue × 5 langues = 25 appels Groq (~50 sec)
+# Identique à variant_c1_system_prompt.yaml mais avec échantillonnage seedé.
+# ============================================================
+
+run_id: "test_quick_c1_system_prompt"
+
+provider: "groq"
+model: "llama-3.1-8b-instant"
+
+languages:
+  - "fr"
+  - "it"
+  - "en"
+  - "es"
+  - "de"
+
+dataset_type: "specific"
+
+max_questions: 5
+sample_seed: 42
+
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+
+prompting:
+  strategy: "system_prompt"
+  preset: "concise"
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"

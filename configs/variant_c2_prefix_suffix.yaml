@@ -1,0 +1,45 @@
+# ============================================================
+# Lot C — Variante 2 : Prefix + Suffix par langue
+# Provider : Qwen 2.5 3B local (Ollama), température 0
+# Hypothèse testée : sur un petit modèle ouvert qui suit moins
+# bien les system prompts, un préfixe/suffixe dans la même langue
+# que la question améliore la cohérence linguistique et la concision.
+# Comparable à variant_c1 (même contrainte, mécanisme différent).
+# ============================================================
+
+run_id: "variant_c2_qwen_prefix_suffix"
+
+provider: "qwen_ollama"
+model: "qwen2.5:3b"
+ollama_base_url: "http://localhost:11434/v1"
+
+languages:
+  - "fr"
+  - "it"
+  - "en"
+  - "es"
+  - "de"
+
+dataset_type: "specific"
+
+# Décommenter pour un run de test rapide (5 questions par langue) :
+# max_questions: 5
+# sample_seed: 42
+
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+
+prompting:
+  strategy: "prefix_suffix"
+  # Les prefixes/suffixes par défaut couvrent fr/en/es/it/de.
+  # Pour surcharger une langue, décommenter :
+  # prefixes:
+  #   fr: "Réponds très brièvement, en français : "
+  # suffixes:
+  #   fr: "\n\nRéponse :"
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"

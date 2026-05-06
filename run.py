@@ -105,9 +105,10 @@ def main() -> None:
             logger.info("  [%s] ignoré (fichier introuvable)", lang)
         else:
             logger.info(
-                "  [%s] %d questions | %d OK | %d erreurs | moy. %.0fms",
+                "  [%s] %d/%d questions | %d OK | %d erreurs | moy. %.0fms",
                 lang,
-                stats["total"],
+                stats["total_sampled"],
+                stats["total_in_file"],
                 stats["success"],
                 stats["errors"],
                 stats["avg_latency_ms"],
