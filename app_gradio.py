@@ -3,8 +3,8 @@ import requests
 import time
 import os
 
-# Pointez sur le Mock Server (8001) pour développer, puis passez à 8000 pour la prod.
-API_BASE_URL = "http://localhost:8001"
+# Pointez sur le Mock Server (8000) pour développer, puis passez à 8000 pour la prod.
+API_BASE_URL = "http://localhost:8000"
 
 def fetch_catalogue():
     """Récupère les providers, langues et stratégies depuis le backend."""
@@ -22,7 +22,7 @@ CATALOGUE = fetch_catalogue()
 
 def update_models(provider_id):
     """Met à jour la liste des modèles quand on change de provider."""
-    if not provider_id or provider_id not in CATALOGUE["providers"]:
+    if not provider_id or provider_id not in CATALOGUE.get("providers", {}):
         return gr.update(choices=[], value=None)
     models = [m["id"] for m in CATALOGUE["providers"][provider_id]["models"]]
     return gr.update(choices=models, value=models[0] if models else None)
@@ -74,7 +74,9 @@ def launch_and_track_run(provider, model, langs, dataset_type, temp, max_tokens,
         # 3. Fin du run
         if status == "done":
             download_url = f"{API_BASE_URL}/runs/{run_id}/download"
-            yield f"✅ Terminé avec succès ! Run ID: {run_id}", gr.update(value=download_url, visible=True)
+            # On génère directement la balise HTML pour le bouton de téléchargement
+            html_btn = f'<a href="{download_url}" target="_blank" style="display:inline-block; padding:10px 15px; background-color:#22c55e; color:white; font-weight:bold; border-radius:5px; text-decoration:none;">📥 Télécharger le package de soumission (.zip)</a>'
+            yield f"✅ Terminé avec succès ! Run ID: {run_id}", gr.update(value=html_btn, visible=True)
         else:
             yield f"❌ Erreur lors du run {run_id}", gr.update(visible=False)
             
@@ -94,7 +96,7 @@ def get_history():
             formatted.append([
                 r.get("run_id"), r.get("status"), r.get("provider"), 
                 r.get("model"), ", ".join(r.get("languages", [])), 
-                f"{r.get('duration_seconds', 0)}s" if r.get('duration_seconds') else "-"
+                f"{round(r.get('duration_seconds', 0), 2)}s" if r.get('duration_seconds') else "-"
             ])
         return formatted
     except Exception:
@@ -111,30 +113,34 @@ with gr.Blocks(title="ELOQUENT - Panel de Contrôle (Lot B)") as app:
             with gr.Row():
                 with gr.Column():
                     gr.Markdown("### ⚙️ Configuration du Modèle")
-                    provider_list = list(CATALOGUE["providers"].keys())
-                    provider_dropdown = gr.Dropdown(choices=provider_list, label="Provider", value=provider_list[0] if provider_list else None)
-                    model_dropdown = gr.Dropdown(label="Modèle")
+                    
+                    # Fix 422 : Initialisation correcte avec des valeurs par défaut
+                    provider_list = list(CATALOGUE.get("providers", {}).keys())
+                    default_provider = provider_list[0] if provider_list else None
+                    default_models = [m["id"] for m in CATALOGUE["providers"][default_provider]["models"]] if default_provider else []
+                    
+                    provider_dropdown = gr.Dropdown(choices=provider_list, label="Provider", value=default_provider)
+                    model_dropdown = gr.Dropdown(choices=default_models, label="Modèle", value=default_models[0] if default_models else None)
+                    
                     provider_dropdown.change(fn=update_models, inputs=provider_dropdown, outputs=model_dropdown)
                     
                     dataset_type = gr.Radio(choices=["specific", "unspecific"], label="Type de Dataset", value="specific")
                     
-                    lang_choices = [l["code"] for l in CATALOGUE["languages"]]
+                    lang_choices = [l["code"] for l in CATALOGUE.get("languages", [])]
                     languages = gr.CheckboxGroup(choices=lang_choices, label="Langues", value=["fr"])
                 
                 with gr.Column():
-                     #Composant fichier d'entrée
+                    # Composant fichier d'entrée (Note: L'UI l'affiche, mais le backend actuel utilise 'dataset_type' pour lire le dossier 'data/input')
                     fichier_entree = gr.File(
-                    elem_id="fichier_entree",
-                    file_types=[".jsonl"],
-                    label="Fichier d'entrée :"
-            )
-                    
+                        elem_id="fichier_entree",
+                        file_types=[".jsonl"],
+                        label="Fichier d'entrée additionnel (Optionnel) :"
+                    )
                     
             launch_btn = gr.Button("▶️ Lancer le Run", variant="primary")
             
             gr.Markdown("### 📊 Progression en direct")
             status_box = gr.Textbox(label="Statut", interactive=False)
-            # Bouton de téléchargement masqué par défaut, on passera l'URL en javascript ou html
             download_html = gr.HTML(visible=False, label="Téléchargement")
             
         # --- ONGLET 2 : HISTORIQUE ---
@@ -147,23 +153,21 @@ with gr.Blocks(title="ELOQUENT - Panel de Contrôle (Lot B)") as app:
             refresh_btn.click(fn=get_history, inputs=[], outputs=history_table)
             app.load(fn=get_history, inputs=[], outputs=history_table) # Charge au démarrage
 
-        # Onglet 3 : Parametres de generation
+        # --- ONGLET 3 : PARAMÈTRES DE GÉNÉRATION ---
         with gr.Tab("🎛️ Paramètres de Génération"):
             temperature = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, value=0.0, label="Température (0 = Baseline déterministe)")
             max_tokens = gr.Slider(minimum=10, maximum=500, step=10, value=150, label="Max Tokens (Réponse courte)")
             max_questions = gr.Slider(minimum=5, maximum=500, step=5, value=5, label="Max Questions")
 
-            strat_choices = [s["id"] for s in CATALOGUE["strategies"]]
-            strategy = gr.Dropdown(choices=strat_choices, label="Stratégie (Lot C)", value="vanilla")
+            strat_choices = [s["id"] for s in CATALOGUE.get("strategies", [])]
+            strategy = gr.Dropdown(choices=strat_choices, label="Stratégie (Lot C)", value="vanilla" if "vanilla" in strat_choices else None)
 
-    # Action du bouton de lancement (utilise un générateur pour la barre de progression texte)
-        launch_btn.click(
-            fn=launch_and_track_run,
-            inputs=[provider_dropdown, model_dropdown, languages, dataset_type, temperature, max_tokens, max_questions, strategy],
-            outputs=[status_box, download_html]
-        )
-    # Met à jour le bouton de téléchargement avec un vrai lien cliquable quand c'est prêt
-        download_html.change(fn=lambda url: f'<a href="{url}" target="_blank" style="padding:10px; background-color:#22c55e; color:white; border-radius:5px; text-decoration:none;">📥 Télécharger le package de soumission (.zip)</a>', inputs=download_html, outputs=download_html)
+    # Action du bouton de lancement : on relie les composants des onglets 1 et 3
+    launch_btn.click(
+        fn=launch_and_track_run,
+        inputs=[provider_dropdown, model_dropdown, languages, dataset_type, temperature, max_tokens, max_questions, strategy],
+        outputs=[status_box, download_html]
+    )
             
 # Lancement de l'application
 if __name__ == "__main__":

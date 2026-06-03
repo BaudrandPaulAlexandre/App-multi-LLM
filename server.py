@@ -146,6 +146,10 @@ class RunRequest(BaseModel):
         "vanilla",
         description="Stratégie de prompting : 'vanilla' ou 'system_prompt'",
     )
+    max_questions: int | None = Field(
+        None, 
+        description="Nombre maximum de questions à échantillonner (ou null)",
+    )
 
 
 class RunSummary(BaseModel):
@@ -230,6 +234,7 @@ def create_run(req: RunRequest) -> dict:
             output_dir=OUTPUT_DIR,
         ),
         groq_api_key=os.environ.get("GROQ_API_KEY"),
+        max_questions=req.max_questions,
     )
 
     try:
