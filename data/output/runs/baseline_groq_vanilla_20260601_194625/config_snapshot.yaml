@@ -1,0 +1,19 @@
+run_id: baseline_groq_vanilla
+provider: groq
+model: llama-3.1-8b-instant
+languages:
+- fr
+- it
+- en
+- es
+- de
+dataset_type: specific
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+prompting:
+  strategy: vanilla
+ollama_base_url: http://localhost:11434/v1
+max_questions: null
+sample_seed: 42

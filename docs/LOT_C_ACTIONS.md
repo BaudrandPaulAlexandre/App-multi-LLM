@@ -86,7 +86,8 @@ python run.py --config configs/variant_c2_prefix_suffix.yaml
 # C3 — Rewrite (Qwen cible + Groq rewriter)
 python run.py --config configs/variant_c3_rewrite.yaml
 ```
-
+ python run_all_variants.py  
+ lancer tout les tests  Fr en même temps 
 ---
 
 ## 4. Runs complets des 3 variantes — dataset `unspecific`
