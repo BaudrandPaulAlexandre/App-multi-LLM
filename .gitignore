@@ -13,7 +13,6 @@ build/
 
 # Données (trop lourdes + potentiellement sous licence)
 data/input/
-data/output/
 
 # IDE
 .vscode/settings.json
