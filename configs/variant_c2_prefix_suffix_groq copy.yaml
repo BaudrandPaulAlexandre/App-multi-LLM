@@ -7,15 +7,14 @@
 # Comparable à variant_c1 (même contrainte, mécanisme différent).
 # ============================================================
 
-run_id: "variant_c2_groq_prefix_suffix"
+run_id: "variant_c2_groq_prefix_suffix_copy"
 
 provider: "groq"
 model: "llama-3.1-8b-instant"
 
 languages:
-  - "fr"
-  - "it"
-  - "en"
+  - "es"
+  - "de"
 
 dataset_type: "specific"
 
