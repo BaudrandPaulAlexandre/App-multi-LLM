@@ -13,9 +13,13 @@ provider: "groq"
 model: "llama-3.1-8b-instant"
 
 languages:
+  - "fr"
+  - "it"
+  - "en"
+  - "es"
   - "de"
 
-dataset_type: "specific"
+dataset_type: "unspecific"
 
 # Décommenter pour un run de test rapide (5 questions par langue) :
 # max_questions: 5

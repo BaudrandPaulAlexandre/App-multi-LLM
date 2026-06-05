@@ -1,0 +1,61 @@
+{
+  "run_id": "variant_c2_groq_prefix_suffix_copy",
+  "provider": "groq",
+  "model": "llama-3.1-8b-instant",
+  "strategy": "prefix_suffix",
+  "dataset_type": "unspecific",
+  "languages": [
+    "fr",
+    "it",
+    "en",
+    "es",
+    "de"
+  ],
+  "max_questions": null,
+  "sample_seed": 42,
+  "generation": {
+    "temperature": 0.0,
+    "max_tokens": 150,
+    "top_p": 1.0
+  },
+  "started_at": "2026-06-04T21:40:35.286852+00:00",
+  "ended_at": "2026-06-04T21:59:04.229931+00:00",
+  "duration_seconds": 1108.9,
+  "per_language": {
+    "fr": {
+      "total_in_file": 101,
+      "total_sampled": 101,
+      "success": 101,
+      "errors": 0,
+      "avg_latency_ms": 1874.7
+    },
+    "it": {
+      "total_in_file": 101,
+      "total_sampled": 101,
+      "success": 101,
+      "errors": 0,
+      "avg_latency_ms": 2297.2
+    },
+    "en": {
+      "total_in_file": 101,
+      "total_sampled": 101,
+      "success": 101,
+      "errors": 0,
+      "avg_latency_ms": 2236.4
+    },
+    "es": {
+      "total_in_file": 101,
+      "total_sampled": 101,
+      "success": 101,
+      "errors": 0,
+      "avg_latency_ms": 2280.8
+    },
+    "de": {
+      "total_in_file": 101,
+      "total_sampled": 101,
+      "success": 101,
+      "errors": 0,
+      "avg_latency_ms": 2284.3
+    }
+  }
+}

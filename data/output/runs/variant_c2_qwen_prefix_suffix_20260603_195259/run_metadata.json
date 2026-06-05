@@ -1,0 +1,61 @@
+{
+  "run_id": "variant_c2_qwen_prefix_suffix",
+  "provider": "qwen_ollama",
+  "model": "qwen2.5:3b",
+  "strategy": "prefix_suffix",
+  "dataset_type": "specific",
+  "languages": [
+    "fr",
+    "it",
+    "en",
+    "es",
+    "de"
+  ],
+  "max_questions": null,
+  "sample_seed": 42,
+  "generation": {
+    "temperature": 0.0,
+    "max_tokens": 150,
+    "top_p": 1.0
+  },
+  "started_at": "2026-06-03T19:52:59.486634+00:00",
+  "ended_at": "2026-06-04T23:20:17.958649+00:00",
+  "duration_seconds": 98838.5,
+  "per_language": {
+    "fr": {
+      "total_in_file": 4140,
+      "total_sampled": 4140,
+      "success": 4140,
+      "errors": 0,
+      "avg_latency_ms": 5024.9
+    },
+    "it": {
+      "total_in_file": 4140,
+      "total_sampled": 4140,
+      "success": 4140,
+      "errors": 0,
+      "avg_latency_ms": 4700.6
+    },
+    "en": {
+      "total_in_file": 4140,
+      "total_sampled": 4140,
+      "success": 4140,
+      "errors": 0,
+      "avg_latency_ms": 3738.6
+    },
+    "es": {
+      "total_in_file": 4140,
+      "total_sampled": 4140,
+      "success": 4140,
+      "errors": 0,
+      "avg_latency_ms": 4095.6
+    },
+    "de": {
+      "total_in_file": 4140,
+      "total_sampled": 4140,
+      "success": 4140,
+      "errors": 0,
+      "avg_latency_ms": 6311.1
+    }
+  }
+}
