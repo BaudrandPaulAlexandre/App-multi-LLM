@@ -18,7 +18,7 @@ languages:
   - "de"
 
 #dataset_type: "specific"
-dataset_type: "unspecific"
+dataset_type: "specific"
 
 generation:
   temperature: 0.0
@@ -32,5 +32,4 @@ paths:
   input_dir: "data/input"
   output_dir: "data/output/runs"
 
-max_questions: 5
 sample_seed: 42

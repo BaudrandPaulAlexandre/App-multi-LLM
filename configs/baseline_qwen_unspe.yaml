@@ -1,10 +1,10 @@
 # ============================================================
-# Test rapide — Lot C / Variante 2 : Prefix + Suffix
-# 5 questions par langue × 5 langues = 25 appels Qwen local
-# Pré-requis : Ollama lancé + `ollama pull qwen2.5:3b`
+# Baseline ELOQUENT — Provider : Qwen 2.5 3B via Ollama
+# Run "vanilla" : aucun prompt engineering, température 0
+# Protocole : une question = une session indépendante
 # ============================================================
 
-run_id: "test_quick_c2_prefix_suffix"
+run_id: "baseline_qwen_vanilla"
 
 provider: "qwen_ollama"
 model: "qwen2.5:3b"
@@ -17,10 +17,8 @@ languages:
   - "es"
   - "de"
 
-dataset_type: "specific"
-
-max_questions: 5
-sample_seed: 42
+#dataset_type: "specific"
+dataset_type: "unspecific"
 
 generation:
   temperature: 0.0
@@ -28,8 +26,11 @@ generation:
   top_p: 1.0
 
 prompting:
-  strategy: "prefix_suffix"
+  strategy: "vanilla"
 
 paths:
   input_dir: "data/input"
   output_dir: "data/output/runs"
+
+
+sample_seed: 42
