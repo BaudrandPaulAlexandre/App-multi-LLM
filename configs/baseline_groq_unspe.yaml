@@ -31,5 +31,5 @@ paths:
   input_dir: "data/input"
   output_dir: "data/output/runs"
 
-max_questions: 500
+
 sample_seed: 42
