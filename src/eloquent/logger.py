@@ -26,6 +26,14 @@ def setup_logging(log_file: Path | None = None, level: int = logging.INFO) -> No
     fmt = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     datefmt = "%Y-%m-%d %H:%M:%S"
 
+    # Sur une console Windows (cp1252 par défaut), les logs contenant des
+    # caractères non-ASCII (✓, ✅, ⚠️, accents) lèvent un UnicodeEncodeError.
+    # On force stdout en UTF-8 quand c'est possible (Python ≥ 3.7).
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
     handlers: list[logging.Handler] = [
         logging.StreamHandler(sys.stdout)
     ]

@@ -111,10 +111,14 @@ class RunConfig:
     max_questions: int | None = None
     sample_seed: int = 42
 
-    def validate(self) -> None:
+    def validate(self, require_api_key: bool = True) -> None:
         """
         Vérifie la cohérence de la config.
         Lève ValueError avec un message explicite si quelque chose cloche.
+
+        require_api_key : passer False pour valider une config "modèle"
+        (ex : génération d'un YAML réutilisable depuis le Lot B) sans exiger
+        que GROQ_API_KEY soit déjà présent dans l'environnement.
         """
         valid_providers = {"groq", "qwen_ollama"}
         if self.provider not in valid_providers:
@@ -133,7 +137,7 @@ class RunConfig:
         if not self.languages:
             raise ValueError("La liste 'languages' ne peut pas être vide.")
 
-        if self.provider == "groq" and not self.groq_api_key:
+        if require_api_key and self.provider == "groq" and not self.groq_api_key:
             raise ValueError(
                 "provider=groq mais GROQ_API_KEY introuvable. "
                 "Vérifiez votre fichier .env."

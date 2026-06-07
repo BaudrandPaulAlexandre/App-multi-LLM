@@ -31,9 +31,10 @@ import time
 import zipfile
 from datetime import datetime, timezone
 
+import yaml
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(
@@ -84,8 +85,10 @@ AVAILABLE_LANGUAGES = [
 ]
 
 AVAILABLE_STRATEGIES = [
-    {"id": "vanilla",       "label": "Vanilla — texte brut (baseline)"},
-    {"id": "system_prompt", "label": "System prompt (Lot C)"},
+    {"id": "vanilla",       "label": "Vanilla — texte brut (baseline, Lot A)"},
+    {"id": "system_prompt", "label": "System prompt (Lot C — variante 1)"},
+    {"id": "prefix_suffix", "label": "Préfixe/suffixe par langue (Lot C — variante 2)"},
+    {"id": "rewrite",       "label": "Réécriture de la question (Lot C — variante 3)"},
 ]
 
 # ---------------------------------------------------------------------------
@@ -155,6 +158,36 @@ class RunRequest(BaseModel):
     temperature: float = Field(0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(150, ge=10, le=2048)
     strategy: str = "vanilla"
+    preset: str | None = None
+    max_questions: int | None = None
+
+
+def _mock_config_dict(req: "RunRequest", run_id: str) -> dict:
+    """Reproduit (en plus léger) RunConfig.to_dict() du vrai serveur."""
+    prompting: dict = {"strategy": req.strategy}
+    if req.strategy == "system_prompt":
+        prompting["preset"] = req.preset or "concise"
+    elif req.strategy == "rewrite":
+        prompting["rewriter"] = {
+            "provider": req.provider,
+            "model": req.model,
+            "max_tokens": 80,
+        }
+    return {
+        "run_id": run_id,
+        "provider": req.provider,
+        "model": req.model,
+        "languages": req.languages,
+        "dataset_type": req.dataset_type,
+        "generation": {
+            "temperature": req.temperature,
+            "max_tokens": req.max_tokens,
+            "top_p": 1.0,
+        },
+        "prompting": prompting,
+        "max_questions": req.max_questions,
+        "sample_seed": 42,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +201,16 @@ def get_providers() -> dict:
         "languages":  AVAILABLE_LANGUAGES,
         "strategies": AVAILABLE_STRATEGIES,
     }
+
+
+@app.post("/config/yaml", tags=["Catalogue"])
+def generate_config_yaml(req: RunRequest) -> dict:
+    """[MOCK] Génère un YAML de config depuis le formulaire (mêmes champs que le vrai serveur)."""
+    run_id = f"{req.provider}_{req.strategy}"
+    yaml_text = yaml.dump(
+        _mock_config_dict(req, run_id), allow_unicode=True, sort_keys=False
+    )
+    return {"filename": f"{run_id}.yaml", "yaml": yaml_text}
 
 
 @app.post("/runs", status_code=202, tags=["Runs"])
@@ -349,6 +392,30 @@ def download_run(run_id: str) -> StreamingResponse:
         zip_buffer,
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={run_id}.zip"},
+    )
+
+
+@app.get("/runs/{run_id}/config.yaml", tags=["Runs"])
+def download_run_config(run_id: str) -> Response:
+    """[MOCK] Retourne un config_snapshot.yaml factice pour un run existant."""
+    if run_id not in _mock_runs:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' introuvable.")
+
+    run = _mock_runs[run_id]
+    snapshot = {
+        "run_id": run_id,
+        "provider": run.get("provider", "groq"),
+        "model": run.get("model", "llama-3.1-8b-instant"),
+        "languages": run.get("languages", ["fr"]),
+        "dataset_type": run.get("dataset_type", "specific"),
+        "generation": run.get("generation", {"temperature": 0.0, "max_tokens": 150}),
+        "prompting": {"strategy": run.get("strategy", "vanilla")},
+    }
+    yaml_text = yaml.dump(snapshot, allow_unicode=True, sort_keys=False)
+    return Response(
+        content=yaml_text,
+        media_type="application/x-yaml",
+        headers={"Content-Disposition": f"attachment; filename={run_id}_config.yaml"},
     )
 
 

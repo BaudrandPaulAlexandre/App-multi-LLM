@@ -1,0 +1,16 @@
+run_id: groq_system_prompt_20260607_180144
+provider: groq
+model: llama-3.1-8b-instant
+languages:
+- fr
+dataset_type: specific
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+prompting:
+  strategy: system_prompt
+  preset: concise
+ollama_base_url: http://localhost:11434/v1
+max_questions: 5
+sample_seed: 42

@@ -32,15 +32,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from eloquent.config import (
-    GenerationParams, PathsConfig, PromptingParams, RunConfig,
+    GenerationParams, PathsConfig, PromptingParams, RewriterConfig, RunConfig,
 )
 from eloquent.logger import get_logger, setup_logging
 from eloquent.pipeline import PipelineRunner
@@ -103,8 +105,10 @@ AVAILABLE_LANGUAGES = [
 ]
 
 AVAILABLE_STRATEGIES = [
-    {"id": "vanilla",       "label": "Vanilla — texte brut (baseline)"},
-    {"id": "system_prompt", "label": "System prompt (Lot C)"},
+    {"id": "vanilla",       "label": "Vanilla — texte brut (baseline, Lot A)"},
+    {"id": "system_prompt", "label": "System prompt (Lot C — variante 1)"},
+    {"id": "prefix_suffix", "label": "Préfixe/suffixe par langue (Lot C — variante 2)"},
+    {"id": "rewrite",       "label": "Réécriture de la question (Lot C — variante 3)"},
 ]
 
 OUTPUT_DIR = Path("data/output/runs")
@@ -144,10 +148,21 @@ class RunRequest(BaseModel):
     )
     strategy: str = Field(
         "vanilla",
-        description="Stratégie de prompting : 'vanilla' ou 'system_prompt'",
+        description=(
+            "Stratégie de prompting : 'vanilla', 'system_prompt', "
+            "'prefix_suffix' ou 'rewrite'"
+        ),
+    )
+    preset: str | None = Field(
+        None,
+        description=(
+            "Optionnel — preset du system prompt ('concise', 'neutral', "
+            "'culturally_aware'). Utilisé uniquement si strategy='system_prompt'. "
+            "Défaut : 'concise'."
+        ),
     )
     max_questions: int | None = Field(
-        None, 
+        None,
         description="Nombre maximum de questions à échantillonner (ou null)",
     )
 
@@ -175,6 +190,66 @@ _active_runs: dict[str, threading.Thread] = {}
 
 
 # ---------------------------------------------------------------------------
+# Construction de la config à partir d'une requête Lot B
+# ---------------------------------------------------------------------------
+
+def _build_prompting_params(req: "RunRequest") -> PromptingParams:
+    """
+    Traduit la stratégie choisie par le Lot B en PromptingParams complet.
+
+    Les stratégies du Lot C requièrent des paramètres supplémentaires
+    (preset, rewriter, ...). Pour que le Lot B puisse toutes les sélectionner
+    en un seul clic, on applique ici des valeurs par défaut sensées :
+
+      vanilla        → aucun paramètre
+      system_prompt  → preset (défaut 'concise')
+      prefix_suffix  → préfixes/suffixes par défaut par langue
+      rewrite        → rewriter = même provider/modèle que le run
+    """
+    strategy = req.strategy
+
+    if strategy == "system_prompt":
+        return PromptingParams(
+            strategy="system_prompt",
+            preset=req.preset or "concise",
+        )
+
+    if strategy == "prefix_suffix":
+        # prefixes/suffixes=None → DEFAULT_PREFIXES/SUFFIXES appliqués par la stratégie
+        return PromptingParams(strategy="prefix_suffix")
+
+    if strategy == "rewrite":
+        return PromptingParams(
+            strategy="rewrite",
+            rewriter=RewriterConfig(provider=req.provider, model=req.model),
+        )
+
+    return PromptingParams(strategy="vanilla")
+
+
+def _build_run_config(req: "RunRequest", run_id: str) -> RunConfig:
+    """Assemble un RunConfig complet à partir de la requête Lot B."""
+    return RunConfig(
+        run_id=run_id,
+        provider=req.provider,
+        model=req.model,
+        languages=req.languages,
+        dataset_type=req.dataset_type,
+        generation=GenerationParams(
+            temperature=req.temperature,
+            max_tokens=req.max_tokens,
+        ),
+        prompting=_build_prompting_params(req),
+        paths=PathsConfig(
+            input_dir=INPUT_DIR,
+            output_dir=OUTPUT_DIR,
+        ),
+        groq_api_key=os.environ.get("GROQ_API_KEY"),
+        max_questions=req.max_questions,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -199,6 +274,37 @@ def get_providers() -> dict:
 
 
 @app.post(
+    "/config/yaml",
+    summary="Génère un YAML de configuration depuis les choix du formulaire",
+    tags=["Catalogue"],
+)
+def generate_config_yaml(req: RunRequest) -> dict:
+    """
+    Transforme les sélections du Lot B (provider, modèle, langues, stratégie,
+    paramètres) en un fichier de configuration YAML **réutilisable**, identique
+    à ceux du dossier `configs/`.
+
+    Le Lot B propose ce YAML au téléchargement : il peut ensuite être rejoué
+    tel quel via `python run.py --config <fichier>.yaml`.
+
+    Aucun run n'est lancé. La clé API n'est jamais incluse dans le YAML et
+    n'a pas besoin d'être présente pour générer le fichier.
+    """
+    # run_id descriptif sans horodatage : le pipeline ajoute son propre timestamp
+    run_id = f"{req.provider}_{req.strategy}"
+    cfg = _build_run_config(req, run_id)
+
+    try:
+        cfg.validate(require_api_key=False)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    yaml_text = yaml.dump(cfg.to_dict(), allow_unicode=True, sort_keys=False)
+
+    return {"filename": f"{run_id}.yaml", "yaml": yaml_text}
+
+
+@app.post(
     "/runs",
     summary="Lance un nouveau run",
     status_code=202,   # 202 Accepted = traitement en arrière-plan
@@ -218,24 +324,7 @@ def create_run(req: RunRequest) -> dict:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     run_id    = f"{req.provider}_{req.strategy}_{timestamp}"
 
-    cfg = RunConfig(
-        run_id=run_id,
-        provider=req.provider,
-        model=req.model,
-        languages=req.languages,
-        dataset_type=req.dataset_type,
-        generation=GenerationParams(
-            temperature=req.temperature,
-            max_tokens=req.max_tokens,
-        ),
-        prompting=PromptingParams(strategy=req.strategy),
-        paths=PathsConfig(
-            input_dir=INPUT_DIR,
-            output_dir=OUTPUT_DIR,
-        ),
-        groq_api_key=os.environ.get("GROQ_API_KEY"),
-        max_questions=req.max_questions,
-    )
+    cfg = _build_run_config(req, run_id)
 
     try:
         cfg.validate()
@@ -365,6 +454,36 @@ def download_run(run_id: str) -> StreamingResponse:
         zip_buffer,
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@app.get(
+    "/runs/{run_id}/config.yaml",
+    summary="Télécharger le config_snapshot.yaml d'un run",
+    tags=["Runs"],
+)
+def download_run_config(run_id: str) -> FileResponse:
+    """
+    Retourne le fichier `config_snapshot.yaml` sauvegardé au début d'un run.
+
+    C'est la configuration EXACTE qui a servi à produire le run — pratique pour
+    rejouer un run passé à l'identique ou l'archiver indépendamment du ZIP.
+    """
+    run_dir = _find_run_dir(run_id)
+    if run_dir is None:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' introuvable")
+
+    snapshot = run_dir / "config_snapshot.yaml"
+    if not snapshot.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="config_snapshot.yaml introuvable (le run n'a pas encore démarré ?)",
+        )
+
+    return FileResponse(
+        snapshot,
+        media_type="application/x-yaml",
+        filename=f"{run_dir.name}_config.yaml",
     )
 
 
