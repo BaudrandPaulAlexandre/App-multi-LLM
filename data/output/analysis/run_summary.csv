@@ -1,0 +1,9 @@
+provider,model,strategy,dataset_type,n,empty_pct,avg_words,median_words,too_long_pct,mentions_country_pct,vague_kw_pct,stereotype_kw_pct,lang_mismatch_pct
+groq,llama-3.1-8b-instant,prefix_suffix,specific,12420,0.22,27.97,28.0,3.01,8.48,0.65,6.48,0.03
+groq,llama-3.1-8b-instant,prefix_suffix,unspecific,505,0.0,28.99,29.0,6.73,0.0,1.19,7.72,0.0
+groq,llama-3.1-8b-instant,vanilla,specific,20700,0.13,33.13,32.0,15.06,7.25,1.04,8.27,0.16
+groq,llama-3.1-8b-instant,vanilla,unspecific,505,0.0,35.56,35.0,24.16,0.0,1.58,8.71,0.0
+qwen_ollama,qwen2.5:3b,prefix_suffix,specific,20700,0.0,16.35,16.0,0.22,13.16,0.57,6.2,0.43
+qwen_ollama,qwen2.5:3b,prefix_suffix,unspecific,505,0.0,15.83,15.0,0.2,0.0,1.19,7.33,0.2
+qwen_ollama,qwen2.5:3b,vanilla,specific,20705,0.0,26.61,25.0,10.45,22.99,0.9,9.15,2.57
+qwen_ollama,qwen2.5:3b,vanilla,unspecific,505,0.0,24.64,24.0,4.36,0.0,1.78,11.68,0.59
