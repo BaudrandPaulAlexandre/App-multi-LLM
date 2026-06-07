@@ -13,11 +13,12 @@ build/
 
 # Données (trop lourdes + potentiellement sous licence)
 data/input/
+.claude/*
 
 # IDE
 .vscode/settings.json
 .idea/
-
+#docs/*
 # OS
 .DS_Store
 Thumbs.db

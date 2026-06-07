@@ -1,0 +1,53 @@
+# ============================================================
+# Variante baseline ELOQUENT — Passerelle OpenRouter -> Groq
+# Run "vanilla" : aucun prompt engineering, température 0
+# OpenRouter sert de passerelle, l'inférence est forcée chez Groq
+# via le provider routing ({"provider": {"order": ["Groq"]}}).
+#
+# >>> DOSSIER JETABLE <<<
+# Tout ce qui concerne cette variante vit dans experiments/openrouter_groq/.
+# Supprimer ce dossier suffit à tout retirer (aucun fichier source du
+# package eloquent n'est modifié).
+# ============================================================
+
+run_id: "baseline_openrouter_groq_vanilla"
+
+provider: "openrouter_groq"
+# Modèle Llama 3.1 8B tel qu'exposé par OpenRouter (équivalent du
+# llama-3.1-8b-instant de la baseline Groq directe).
+model: "meta-llama/llama-3.1-8b-instruct"
+# La clé API est lue depuis .env (OPENROUTER_API_KEY)
+
+# Fournisseurs d'inférence autorisés côté OpenRouter, dans l'ordre de
+# préférence. C'est TOI qui renseignes cette liste : OpenRouter tente le
+# premier, puis bascule sur les suivants si indispo (allow_fallbacks: true).
+# Slugs valides pour ce modèle (vérifiés via l'API OpenRouter) :
+#   "groq", "deepinfra/fp8", "deepinfra/bf16", "novita/fp8", "cloudflare/fp8"
+openrouter:
+  base_url: "https://openrouter.ai/api/v1"
+  provider_order: ["groq", "deepinfra/fp8"]
+  allow_fallbacks: true
+  # Délai (en secondes) appliqué AVANT chaque question, pour lisser le débit
+  # et limiter les 429. 0 = aucun délai. Non compté dans la latence mesurée.
+  request_delay_s: 0.0
+
+
+languages:
+  - "it"
+  - "fr"
+
+dataset_type: "specific"   # "specific" ou "unspecific"
+
+generation:
+  temperature: 0.0          # 0 = déterministe (obligatoire pour la baseline)
+  max_tokens: 150           # Réponse courte (~1 phrase) comme demandé par ELOQUENT
+  top_p: 1.0
+
+prompting:
+  strategy: "vanilla"       # Pas de system prompt ajouté — texte brut uniquement
+
+paths:
+  input_dir: "data/input"
+  output_dir: "data/output/runs"
+
+sample_seed: 42
