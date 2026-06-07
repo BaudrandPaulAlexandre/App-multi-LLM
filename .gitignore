@@ -12,7 +12,7 @@ build/
 .env
 
 # Données (trop lourdes + potentiellement sous licence)
-data/input/
+
 .claude/*
 
 # IDE
