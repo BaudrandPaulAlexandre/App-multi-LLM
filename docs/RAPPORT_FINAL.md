@@ -9,7 +9,7 @@
 > les résultats de l'analyse (Lot D), une typologie qualitative d'écarts, les limites et des
 > recommandations. **Tous les chiffres cités proviennent des artefacts versionnés sous
 > `data/output/analysis/`**, régénérés par exécution complète du notebook
-> `notebooks/analyse_lot_d_final.ipynb` (`Restart & Run All`, sans erreur), sur **76 540 réponses**.
+> `notebooks/analyse_lot_d_final.ipynb` (`Restart & Run All`, sans erreur), sur **76 545 réponses**.
 
 ---
 
@@ -34,7 +34,7 @@ sur 5 langues** :
    linguistique.
 3. **La variante de prompting agit surtout sur la forme, pas sur le fond.** La stratégie
    `prefix_suffix` (Lot C2) réduit fortement la longueur et le taux de réponses « trop longues »
-   (Llama : `too_long_pct` 19,3 % → 3,0 % ; Qwen : 10,5 % → 0,2 %) tout en **abaissant légèrement
+   (Llama, sous-ensemble aligné : `too_long_pct` 21,5 % → 3,0 % ; Qwen : 10,5 % → 0,2 %) tout en **abaissant légèrement
    la cohérence et en augmentant la diversité** — l'enrobage contraint le style sans homogénéiser
    le contenu entre langues.
 
@@ -149,30 +149,33 @@ similarité entre langues est le **cosinus moyen par paires** des réponses alig
 
 ### 5.1 Statistiques simples (par condition)
 
-Source : `data/output/analysis/run_summary.csv`.
+Source : `data/output/analysis/run_summary.csv` (chiffres reportés **tels quels**, sans
+sous-sélection). Total : **76 545 réponses** chargées (`analysis_summary.json`).
 
 | Modèle | Stratégie | Dataset | n | % vides | mots (moy.) | % trop longues | % mauvaise langue |
 |---|---|---|---:|---:|---:|---:|---:|
-| Llama 3.1 8B | vanilla | specific | 20 700 | ≤ 0,14 | 32,8 | 14,0 | 0,14 |
+| Llama 3.1 8B | vanilla | specific | 20 700 | 0,13 | 33,1 | 15,1 | 0,16 |
 | Llama 3.1 8B | prefix_suffix | specific | 12 420 | 0,22 | 28,0 | 3,0 | 0,03 |
-| Qwen 2.5 3B | vanilla | specific | 20 700 | 0,00 | 26,6 | 10,5 | 2,57 |
+| Qwen 2.5 3B | vanilla | specific | 20 705 | 0,00 | 26,6 | 10,5 | 2,57 |
 | Qwen 2.5 3B | prefix_suffix | specific | 20 700 | 0,00 | 16,4 | 0,2 | 0,43 |
 | Llama 3.1 8B | vanilla | unspecific | 505 | 0,00 | 35,6 | 24,2 | 0,00 |
 | Llama 3.1 8B | prefix_suffix | unspecific | 505 | 0,00 | 29,0 | 6,7 | 0,00 |
 | Qwen 2.5 3B | vanilla | unspecific | 505 | 0,00 | 24,6 | 4,4 | 0,59 |
 | Qwen 2.5 3B | prefix_suffix | unspecific | 505 | 0,00 | 15,8 | 0,2 | 0,20 |
 
-> La ligne « Llama vanilla specific » agrège les deux identifiants Groq (16 560 réponses
-> de/en/fr/it via OpenRouter→Groq + 4 140 en es via Groq direct = 20 700) ; les valeurs de forme
-> reportées sont celles du bloc 5-langues OpenRouter (mots 32,8 ; trop longues 14,0 % ;
-> mauvaise langue 0,14 %), le bloc es étant marginalement plus verbeux (34,6 mots ; 19,3 %).
+> **Note de périmètre (Llama vanilla specific).** Cette ligne agrège les deux identifiants Groq
+> (16 560 réponses de/en/fr/it via OpenRouter→Groq + 4 140 en es via Groq direct = 20 700). Les
+> valeurs ci-dessus sont les **agrégats de l'artefact** (mots 33,1 ; trop longues 15,1 %). Pour la
+> comparaison alignée 5-langues du §5.4, le bloc strictement aligné donne 34,9 mots et 21,5 % de
+> réponses trop longues (cf. `baseline_vs_variant.csv`) ; l'écart vient du périmètre d'items, pas
+> d'un recalcul.
 
 **Lecture.**
 - **Taux de vides quasi nul partout** (≤ 0,22 %) : les runs sont propres et complets.
 - **Qwen répond plus court** (≈ 16–27 mots) que Llama (≈ 28–36) ; la consigne « réponse courte » est
   mieux respectée par Qwen, surtout en `prefix_suffix`.
 - **La variante `prefix_suffix` discipline la longueur** : le taux de réponses « trop longues »
-  s'effondre (Llama 14 % → 3 % ; Qwen 10,5 % → 0,2 %).
+  s'effondre (Llama 15,1 % → 3,0 % ; Qwen 10,5 % → 0,2 %).
 
 ### 5.2 Mesure sémantique — cohérence (specific) et diversité (unspecific)
 
@@ -204,15 +207,51 @@ Autrement dit, le modèle le plus « fort » n'est pas le meilleur sur les deux 
 robuste mais moins divers. C'est cohérent avec l'intuition (un modèle plus capable « normalise »
 davantage ses réponses) et constitue le résultat le plus directement exploitable du Lot D.
 
-### 5.3 Effet de la variante — comparaison structurée baseline ↔ variante
+### 5.3 Ventilation par langue (`specific`, baseline `vanilla`)
+
+Source : `data/output/analysis/language_summary.csv`. Les agrégats du §5.1 masquent des écarts
+**par langue** qui éclairent la robustesse. On reporte ici la condition `vanilla specific`, la plus
+révélatrice (la variante `prefix_suffix` aplanit ces écarts, cf. §5.4–5.5). `n = 4 140` par langue
+et par modèle (Qwen `fr` : 4 145).
+
+| Modèle | Langue | mots (moy.) | % trop longues | % mentionne le pays | % mauvaise langue |
+|---|---|---:|---:|---:|---:|
+| Llama 3.1 8B | de | 36,9 | 33,2 | 6,0 | 0,17 |
+| Llama 3.1 8B | en | 30,8 | 5,4 | 4,9 | 0,07 |
+| Llama 3.1 8B | es | 34,6 | 19,3 | 17,7 | 0,27 |
+| Llama 3.1 8B | fr | 33,1 | 12,1 | 2,1 | 0,10 |
+| Llama 3.1 8B | it | 30,1 | 5,3 | 5,5 | 0,22 |
+| Qwen 2.5 3B | de | 26,3 | 12,4 | 35,5 | 0,17 |
+| Qwen 2.5 3B | en | 26,1 | 2,4 | 18,9 | 0,10 |
+| Qwen 2.5 3B | es | 31,5 | 22,6 | 26,9 | **5,12** |
+| Qwen 2.5 3B | fr | 27,1 | 10,8 | 23,7 | 0,36 |
+| Qwen 2.5 3B | it | 22,1 | 3,9 | 9,9 | **7,13** |
+
+**Lecture.**
+- **La verbosité dépend de la langue, pas seulement du modèle.** Chez Llama, l'allemand explose la
+  longueur (36,9 mots, 33,2 % trop longues) tandis que l'anglais et l'italien tiennent la phrase
+  unique (≈ 5 % trop longues). L'écart « trop longues » va de **5,3 % à 33,2 %** selon la langue —
+  un facteur que l'agrégat (15,1 %) gomme entièrement.
+- **L'ancrage culturel diffère fortement par langue ET par modèle.** Qwen mentionne explicitement le
+  pays bien plus souvent que Llama (jusqu'à **35,5 %** en allemand contre 6,0 % pour Llama). Cet
+  écart d'ancrage contribue mécaniquement aux écarts de cohérence sémantique du §5.2.
+- **La dérive linguistique de Qwen est concentrée sur deux langues** (it 7,13 %, es 5,12 %) ; les
+  trois autres restent < 0,4 %. C'est un défaut **localisé**, pas global — détaillé au §5.6.
+
+### 5.4 Effet de la variante — comparaison structurée baseline ↔ variante
 
 Source : `data/output/analysis/baseline_vs_variant.csv` (items **strictement alignés** entre
 baseline et variante : mêmes `id`, mêmes langues).
 
 | Modèle | Comparaison | items alignés | % trop longues | mots (moy.) |
 |---|---|---:|---:|---:|
-| Llama 3.1 8B | vanilla → prefix_suffix | 4 140 | 19,3 % → **1,8 %** | 34,6 → 27,4 |
+| Llama 3.1 8B | vanilla → prefix_suffix | 12 420 | 21,5 % → **3,0 %** | 34,9 → 28,0 |
 | Qwen 2.5 3B | vanilla → prefix_suffix | 20 700 | 10,5 % → **0,2 %** | 26,6 → 16,4 |
+
+> Sur le sous-ensemble strictement aligné (mêmes `id`, mêmes langues) : Llama compte **12 420 items
+> alignés** baseline↔variante (le run `prefix_suffix` couvre 3 langues × 4 140), Qwen **20 700**
+> (5 langues × 4 140). Le `% trop longues` de la baseline aligné (21,5 % Llama) est plus élevé que
+> l'agrégat du §5.1 (15,1 %) car il porte sur les seules langues présentes dans la variante.
 
 Croisé avec §5.2, l'effet de `prefix_suffix` est net : **forte discipline de forme** (longueur,
 concision, langue cible) pour un **effet de fond modeste et plutôt dans le sens d'une légère hausse
@@ -220,7 +259,45 @@ de la diversité** (cohérence specific Llama 0,730 → 0,704 ; diversité unspe
 La contrainte de style n'homogénéise pas les contenus entre langues — au contraire, en raccourcissant
 les réponses, elle laisse moins de place au « tronc commun » générique partagé entre langues.
 
-### 5.4 Langue de réponse (robustesse linguistique)
+### 5.5 Généricité sémantique (mesure par embeddings)
+
+Source : notebook `analyse_lot_d_final.ipynb`, section 7. Cette mesure complète §5.2 : au lieu de
+comparer les langues entre elles, elle situe **chaque réponse par rapport au centroïde de sa propre
+condition**. La `semantic_specificity` d'une réponse = `1 − cosinus(réponse, centroïde de la
+condition)`. **↑ = réponse plus singulière** (s'éloigne du « réponse-type » de la condition) ;
+**↓ = réponse plus générique** (proche du passe-partout).
+
+| Modèle | Stratégie | Dataset | **`semantic_specificity` moy.** (↑ singulier) |
+|---|---|---|---:|
+| **Qwen 2.5 3B** | prefix_suffix | specific | **0,606** |
+| Qwen 2.5 3B | prefix_suffix | unspecific | 0,594 |
+| Llama 3.1 8B | vanilla | specific | 0,566 |
+| Qwen 2.5 3B | vanilla | specific | 0,565 |
+| Qwen 2.5 3B | vanilla | unspecific | 0,564 |
+| Llama 3.1 8B | prefix_suffix | unspecific | 0,562 |
+| Llama 3.1 8B | vanilla | unspecific | 0,560 |
+| Llama 3.1 8B | prefix_suffix | specific | 0,560 |
+
+**Lecture.**
+- **C'est une mesure de fond (embeddings), pas lexicale** — contrairement aux heuristiques de
+  mots-clés du §6, qu'elle vient compléter. Elle dit à quel point les réponses d'une condition se
+  ressemblent *entre elles*.
+- **Contre-intuitivement, Qwen `prefix_suffix` est le plus singulier** (0,606 sur `specific`), bien
+  qu'il produise les réponses les plus courtes (≈ 16 mots). Concision n'implique donc pas généricité :
+  en forçant la langue cible et un format serré, l'enrobage écarte les réponses du tronc commun
+  multilingue anglophone plutôt que de les y ramener — cohérent avec la hausse de diversité observée
+  au §5.2.
+- **Les écarts restent resserrés (0,560–0,606).** L'interprétation doit donc rester prudente : aucune
+  condition ne s'effondre en généricité.
+
+> **Honnêteté méthodologique — pourquoi nous ne reportons PAS `genericity_risk`.** Le notebook
+> calcule aussi un drapeau `genericity_risk` (réponses sous le 25ᵉ percentile de
+> `semantic_specificity`). Mais ce seuil étant fixé **par condition**, la part de réponses flaggées
+> vaut **≈ 25 % par construction** dans *toutes* les conditions (24,9–25,2 % mesurés) : c'est un
+> artefact de définition, **pas un résultat comparatif**. Nous reportons donc uniquement la moyenne
+> continue `semantic_specificity`, seule grandeur comparable entre conditions.
+
+### 5.6 Langue de réponse (robustesse linguistique)
 
 Source : `data/output/analysis/lang_mismatch.csv`. Question du sujet : « quand on demande en
 français, répond-il en français ? » Détection par `langdetect` (graine fixée, déterministe).
@@ -249,26 +326,27 @@ basse, diversité la plus haute, réponses trop courtes/longues). On en tire la 
 illustrée par les métriques de §5 :
 
 1. **Non-respect de la consigne linguistique.** Le cas le plus net : Qwen vanilla répond en anglais à
-   des questions italiennes/espagnoles (§5.4). Cause probable : un petit modèle multilingue dont
+   des questions italiennes/espagnoles (§5.6). Cause probable : un petit modèle multilingue dont
    l'« attracteur » par défaut est l'anglais quand la consigne de langue n'est pas explicitée.
 
 2. **Généricité (réponses passe-partout).** Mesurée sémantiquement par la distance au centroïde de la
-   condition (`semantic_specificity` ; les 25 % les plus proches du centroïde = `genericity_risk`).
-   Les réponses très courtes de Qwen `prefix_suffix` (≈ 16 mots) tendent vers des conseils génériques
-   peu ancrés culturellement — la concision se paie en spécificité.
+   condition (`semantic_specificity`, chiffrée au §5.5). Les écarts entre conditions sont resserrés
+   (0,560–0,606) : aucune condition ne s'effondre en généricité. Point notable et **contre-intuitif**,
+   Qwen `prefix_suffix` est la condition la *plus* singulière (0,606) malgré ses réponses très courtes
+   (≈ 16 mots) — la concision **ne se paie donc pas** mécaniquement en généricité ici.
 
-3. **Verbosité / hors-format.** Llama vanilla dépasse souvent la « phrase unique » attendue (14–24 %
-   de réponses trop longues selon le dataset). C'est un écart de format, pas de fond, entièrement
-   corrigé par la variante.
+3. **Verbosité / hors-format.** Llama vanilla dépasse souvent la « phrase unique » attendue (15,1 % en
+   `specific`, 24,2 % en `unspecific`), avec un fort effet de langue (de : 33,2 % ; en/it : ≈ 5 %, cf.
+   §5.3). C'est un écart de format, pas de fond, entièrement corrigé par la variante.
 
-4. **Mention explicite du pays.** `mentions_country_pct` varie fortement (Qwen vanilla `de` : 29,8 %
-   vs Llama : 5,5 %) : les modèles n'ancrent pas leurs réponses dans le contexte avec la même
-   intensité, ce qui contribue aux écarts de cohérence observés.
+4. **Mention explicite du pays.** `mentions_country_pct` varie fortement (Qwen vanilla `de` : 35,5 %
+   vs Llama `de` : 6,0 % — cf. §5.3) : les modèles n'ancrent pas leurs réponses dans le contexte avec
+   la même intensité, ce qui contribue aux écarts de cohérence observés.
 
 > **Honnêteté méthodologique.** Les colonnes `vague_kw_pct` et `stereotype_kw_pct` sont des
 > **heuristiques lexicales** (comptage de mots-clés type « toujours / always / typically »). Elles
 > sont indicatives et **explicitement étiquetées comme non sémantiques** dans le notebook et ici. La
-> seule mesure de fond fiable reste l'embedding (§5.2–5.3). Nous ne présentons donc pas le comptage
+> seule mesure de fond fiable reste l'embedding (§5.2–5.3 et §5.5). Nous ne présentons donc pas le comptage
 > de mots-clés comme une « détection de stéréotypes ».
 
 ---
@@ -278,9 +356,9 @@ illustrée par les métriques de §5 :
 1. **Couverture des variantes.** Seules `vanilla` et `prefix_suffix` (C2) disposent de runs complets
    exploités. C1 (`system_prompt`) et C3 (`rewrite`) sont validés fonctionnellement mais sans run
    complet committé ; leurs effets de fond ne sont donc pas chiffrés ici.
-2. **Volet qualitatif partiellement lexical.** Hors embeddings, la typologie d'écarts s'appuie sur
-   des heuristiques de mots-clés (cf. §6). Une vraie détection de stéréotypes / hallucinations
-   culturelles demanderait un LLM-juge (piste §8).
+2. **Volet qualitatif partiellement lexical.** La généricité est chiffrée par embeddings (§5.5), mais
+   les colonnes « vague » / « stéréotype » restent des heuristiques de mots-clés (cf. §6). Une vraie
+   détection de stéréotypes / hallucinations culturelles demanderait un LLM-juge (piste §8).
 3. **Deux modèles, une famille de tailles.** La comparaison « gros vs petit » repose sur deux modèles
    d'architectures différentes (Llama vs Qwen) ; l'effet « taille » et l'effet « famille » ne sont
    pas séparables. Conclusion à lire comme « ces deux systèmes » plutôt que « la taille en général ».
@@ -333,7 +411,7 @@ jupyter notebook notebooks/analyse_lot_d_final.ipynb   # puis Kernel > Restart &
 | `unspecific_diversity.csv` | Diversité par item aligné |
 | `baseline_vs_variant.csv` | Comparaison structurée baseline ↔ variante (items alignés) |
 | `lang_mismatch.csv` | % de réponses dans la mauvaise langue, par condition × langue |
-| `analysis_summary.json` | Résumé machine-lisible (76 540 réponses) |
+| `analysis_summary.json` | Résumé machine-lisible (76 545 réponses) |
 | `figures/*.png` | Métriques par langue + cohérence/diversité |
 
 **Runs et configs** : `configs/*.yaml` (baseline + variantes), `data/output/runs/*/`
