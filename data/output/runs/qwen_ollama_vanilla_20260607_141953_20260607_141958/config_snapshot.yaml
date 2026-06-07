@@ -1,0 +1,15 @@
+run_id: qwen_ollama_vanilla_20260607_141953
+provider: qwen_ollama
+model: qwen2.5:3b
+languages:
+- fr
+dataset_type: specific
+generation:
+  temperature: 0.0
+  max_tokens: 150
+  top_p: 1.0
+prompting:
+  strategy: vanilla
+ollama_base_url: http://localhost:11434/v1
+max_questions: 5
+sample_seed: 42
