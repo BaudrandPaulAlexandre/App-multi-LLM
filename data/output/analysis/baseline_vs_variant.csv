@@ -1,0 +1,9 @@
+provider,model,variant,condition,aligned_items,dataset_type,n,empty_pct,avg_words,median_words,too_long_pct,mentions_country_pct,vague_kw_pct,stereotype_kw_pct,lang_mismatch_pct
+groq,llama-3.1-8b-instant,prefix_suffix,vanilla,4140,specific,4140,0.14,34.63,34.0,19.28,5.89,2.05,3.94,0.27
+groq,llama-3.1-8b-instant,prefix_suffix,prefix_suffix,4140,specific,4140,0.51,27.39,28.0,1.79,4.66,1.47,3.14,0.05
+groq,llama-3.1-8b-instant,prefix_suffix,vanilla,505,unspecific,505,0.0,35.56,35.0,24.16,0.0,1.58,8.71,0.0
+groq,llama-3.1-8b-instant,prefix_suffix,prefix_suffix,505,unspecific,505,0.0,28.99,29.0,6.73,0.0,1.19,7.72,0.0
+qwen_ollama,qwen2.5:3b,prefix_suffix,vanilla,20700,specific,20700,0.0,26.61,25.0,10.45,14.38,0.9,9.15,2.57
+qwen_ollama,qwen2.5:3b,prefix_suffix,prefix_suffix,20700,specific,20700,0.0,16.35,16.0,0.22,8.35,0.57,6.2,0.43
+qwen_ollama,qwen2.5:3b,prefix_suffix,vanilla,505,unspecific,505,0.0,24.64,24.0,4.36,0.0,1.78,11.68,0.59
+qwen_ollama,qwen2.5:3b,prefix_suffix,prefix_suffix,505,unspecific,505,0.0,15.83,15.0,0.2,0.0,1.19,7.33,0.2

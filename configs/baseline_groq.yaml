@@ -11,10 +11,6 @@ model: "llama-3.1-8b-instant"
 # La clé API est lue depuis .env (GROQ_API_KEY)
 
 languages:
-  - "fr"
-  - "it"
-  - "en"
-  - "es"
   - "de"
 
 dataset_type: "specific"   # "specific" ou "unspecific"
@@ -31,5 +27,4 @@ paths:
   input_dir: "data/input"
   output_dir: "data/output/runs"
 
-max_questions: 500
 sample_seed: 42
