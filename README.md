@@ -50,7 +50,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 pip install -e .
 
 # Configurez vos variables d'environnement en créant un fichier nommé exactement .env à la racine du projet :
-# On peut y trouver par exemple : 
+# Renseignez ensuite une clé API GROQ : 
 
 GROQ_API_KEY=gsk_votre_cle_api_secrete_ici
 

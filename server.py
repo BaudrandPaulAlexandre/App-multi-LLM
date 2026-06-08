@@ -144,7 +144,7 @@ class RunRequest(BaseModel):
     max_tokens: int = Field(
         150,
         ge=10, le=2048,
-        description="Longueur max de la réponse (~150 pour ELOQUENT)",
+        description="Longueur max de la réponse",
     )
     strategy: str = Field(
         "vanilla",

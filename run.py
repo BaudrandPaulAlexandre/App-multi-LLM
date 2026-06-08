@@ -1,7 +1,7 @@
 """
 run.py
 ------
-Point d'entrée CLI du pipeline ELOQUENT Lot A.
+Point d'entrée CLI du pipeline  Lot A.
 
 Usage :
     python run.py --config configs/baseline_groq.yaml
