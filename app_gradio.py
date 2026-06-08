@@ -231,7 +231,7 @@ with gr.Blocks(title="ELOQUENT - Panel de Contrôle (Lot B)") as app:
         with gr.Tab("🎛️ Paramètres de Génération"):
             temperature = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, value=0.0, label="Température (0 = Baseline déterministe)")
             max_tokens = gr.Slider(minimum=10, maximum=500, step=10, value=150, label="Max Tokens (Réponse courte)")
-            max_questions = gr.Slider(minimum=5, maximum=500, step=5, value=5, label="Max Questions")
+            max_questions = gr.Slider(minimum=5, maximum=4140, step=5, value=5, label="Max Questions")
 
     # Action du bouton de lancement : on relie les composants des onglets 1 et 3
     launch_btn.click(
